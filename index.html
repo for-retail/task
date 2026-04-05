@@ -464,7 +464,7 @@
 
     // ─── Get Employee Login Link ─────────────────────────────────────────────────
     // FIX: Build the employee link robustly. We use the current page's origin +
-    // path-directory + "Employee.HTML" so it always points to the right file,
+    // path-directory + "Employee.html" so it always points to the right file,
     // regardless of how the manager page is named or where it lives.
     function getLoginLink(empId) {
       const origin = window.location.origin;
@@ -472,7 +472,7 @@
       const pathParts = window.location.pathname.split('/');
       pathParts.pop(); // remove current filename
       const dir = pathParts.join('/'); // e.g. "" or "/subfolder"
-      const empPath = dir ? dir + '/Employee.HTML' : '/Employee.HTML';
+      const empPath = dir ? dir + '/Employee.html' : '/Employee.html';
       const params = new URLSearchParams({
         emp: empId,
         mgr: currentManagerUid
