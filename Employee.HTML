@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>TaskFlow — My Tasks</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0 }
+    :root {
+      --navy: #363b6c; --navy2: #2a2f58; --navy3: #1e2244;
+      --lavl: #eaedfe; --lav: #a8a3e3; --lavm: #c6c9e7;
+      --wh: #ffffff; --bg: #f0f1fc;
+      --gn: #22c88a; --gnl: #d4f5e9; --gnd: #0e7a52;
+      --rd: #e05c7a; --rdl: #fde8ee;
+      --yl: #f0a500; --yll: #fff3d6;
+      --org: #ff6b2b; --orgl: #fff0e8;
+      --txt: #1e2244; --sub: #7678a0; --brd: rgba(168,163,227,.25);
+    }
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); color: var(--txt); min-height: 100vh }
+
+    /* ── Loading Screen ── */
+    #loading-screen {
+      position: fixed; inset: 0;
+      background: linear-gradient(135deg, var(--navy3), var(--navy));
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9999; flex-direction: column; gap: 16px
+    }
+    #loading-screen.hidden { display: none }
+    .ld-logo { font-family: 'Outfit', sans-serif; font-weight: 800; color: #fff; font-size: 2rem; letter-spacing: .1em }
+    .ld-logo span { color: var(--lav) }
+    .ld-bar { width: 160px; height: 3px; background: rgba(255,255,255,.15); border-radius: 4px; overflow: hidden }
+    .ld-fill { height: 100%; background: var(--lav); border-radius: 4px; animation: ldfill 1.2s ease forwards }
+    @keyframes ldfill { from { width: 0 } to { width: 100% } }
+
+    /* ── Urgent Flash ── */
+    #urgent-flash {
+      display: none; position: fixed; inset: 0;
+      background: rgba(255,107,43,.92); z-index: 9999;
+      align-items: center; justify-content: center;
+      flex-direction: column; text-align: center; padding: 2rem;
+      animation: urgpulse .6s infinite alternate
+    }
+    #urgent-flash.show { display: flex }
+    @keyframes urgpulse { from { background: rgba(255,107,43,.9) } to { background: rgba(220,50,0,.95) } }
+    .uf-title { font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 3rem; color: #fff; margin-bottom: .5rem }
+    .uf-sub { font-size: 1.1rem; color: rgba(255,255,255,.9); margin-bottom: 2rem }
+    .uf-task { font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 1.4rem; color: #fff; background: rgba(0,0,0,.25); padding: 14px 24px; border-radius: 16px; margin-bottom: 2rem; max-width: 500px }
+    .uf-btn { background: #fff; color: var(--org); border: none; padding: 14px 36px; border-radius: 12px; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 16px; cursor: pointer; transition: all .2s }
+    .uf-btn:hover { transform: scale(1.04) }
+
+    /* ── Login ── */
+    #login-screen { display: none; align-items: center; justify-content: center; min-height: 100vh; padding: 1rem; background: linear-gradient(135deg, var(--navy3) 0%, var(--navy) 60%, #5856a0 100%) }
+    #login-screen.show { display: flex }
+    .login-box { background: var(--wh); border-radius: 28px; padding: 3rem 2.5rem; max-width: 400px; width: 100%; box-shadow: 0 32px 80px rgba(30,34,68,.35); text-align: center }
+    .login-logo { font-family: 'Outfit', sans-serif; font-weight: 800; color: var(--navy); font-size: 2rem; letter-spacing: .1em; margin-bottom: 6px }
+    .login-logo span { color: var(--lav) }
+    .login-sub { font-size: 13px; color: var(--sub); margin-bottom: 2rem }
+    .login-role { display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; padding: 5px 16px; border-radius: 20px; background: var(--lavl); color: var(--navy); margin-bottom: 1.75rem }
+    .field { margin-bottom: 1rem; text-align: left }
+    .field label { display: block; font-size: 11px; font-weight: 700; color: var(--sub); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 7px }
+    .field input { width: 100%; padding: 12px 15px; border: 1.5px solid var(--brd); border-radius: 12px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 14px; background: var(--lavl); color: var(--txt); outline: none; transition: all .2s }
+    .field input:focus { border-color: var(--lav); background: var(--wh); box-shadow: 0 0 0 3px rgba(168,163,227,.18) }
+    .btn-primary { background: var(--navy); color: var(--wh); border: none; padding: 13px 24px; border-radius: 12px; font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 14px; cursor: pointer; width: 100%; letter-spacing: .04em; transition: all .2s }
+    .btn-primary:hover { background: var(--navy2); transform: translateY(-1px); box-shadow: 0 8px 24px rgba(54,59,108,.3) }
+    .btn-primary:disabled { opacity: .6; cursor: not-allowed; transform: none; box-shadow: none }
+    .err-msg { font-size: 13px; color: var(--rd); margin-top: 10px; min-height: 20px }
+
+    /* ── App ── */
+    #app-screen { display: none }
+    nav { background: var(--navy3); height: 60px; display: flex; align-items: center; justify-content: space-between; padding: 0 2rem; position: sticky; top: 0; z-index: 200; box-shadow: 0 2px 20px rgba(30,34,68,.3) }
+    .nav-brand { font-family: 'Outfit', sans-serif; font-weight: 800; color: var(--wh); font-size: 1.1rem; letter-spacing: .12em }
+    .nav-brand span { color: var(--lav) }
+    .nav-right { display: flex; align-items: center; gap: 10px }
+    .nav-user { font-size: 13px; font-weight: 700; color: var(--wh) }
+    .nav-role { font-size: 11px; font-weight: 700; color: var(--lavm); background: rgba(168,163,227,.15); padding: 5px 13px; border-radius: 20px; letter-spacing: .06em; text-transform: uppercase }
+    .nav-btn { background: none; border: 1px solid rgba(168,163,227,.3); color: var(--lavm); font-size: 13px; padding: 6px 14px; border-radius: 20px; cursor: pointer; font-family: 'Plus Jakarta Sans', sans-serif; transition: all .2s }
+    .nav-btn:hover { border-color: var(--lav); color: var(--wh) }
+    .board-outer { padding: 1.5rem; overflow-x: auto; min-height: calc(100vh - 60px) }
+    .board { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; min-width: 900px }
+    @media(max-width:860px) { .board { display: flex; flex-direction: column; min-width: 0; gap: 1rem } .board-outer { padding: 1rem } }
+    .col { background: var(--wh); border-radius: 20px; border: 1.5px solid var(--brd); display: flex; flex-direction: column; overflow: hidden; min-height: 300px; box-shadow: 0 2px 16px rgba(54,59,108,.06); transition: box-shadow .2s, border-color .2s }
+    .col.drag-over { box-shadow: 0 0 0 3px var(--lav); border-color: var(--lav) }
+    .col-head { padding: 14px 16px 10px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1.5px solid var(--brd) }
+    .col-tasks .col-head { background: var(--lavl) } .col-tasks .col-title { color: var(--navy) }
+    .col-pending .col-head { background: var(--yll) } .col-pending .col-title { color: #7a5500 }
+    .col-pending .col-count { background: rgba(240,165,0,.15); color: #7a5500 }
+    .col-finished .col-head { background: var(--gnl) } .col-finished .col-title { color: var(--gnd) }
+    .col-finished .col-count { background: rgba(34,200,138,.15); color: var(--gnd) }
+    .col-comments .col-head { background: var(--rdl) } .col-comments .col-title { color: var(--rd) }
+    .col-comments .col-count { background: rgba(224,92,122,.15); color: var(--rd) }
+    .col-title { font-family: 'Outfit', sans-serif; font-weight: 800; font-size: .88rem; letter-spacing: .03em }
+    .col-count { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; background: rgba(54,59,108,.09); color: var(--sub) }
+    .col-hint { font-size: 10.5px; color: var(--sub); padding: 6px 16px 8px; font-style: italic }
+    .col-body { padding: 10px; flex: 1; display: flex; flex-direction: column; gap: 8px; min-height: 120px }
+    .tcard { background: var(--lavl); border-radius: 12px; padding: 12px 13px; border: 1.5px solid var(--brd); cursor: grab; user-select: none; touch-action: none; transition: box-shadow .15s, transform .15s, opacity .15s }
+    .tcard:hover { border-color: var(--lav); box-shadow: 0 4px 16px rgba(168,163,227,.3); transform: translateY(-1px) }
+    .tcard.dragging { opacity: .4; transform: scale(.97); box-shadow: none; cursor: grabbing }
+    #drag-ghost { position: fixed; pointer-events: none; z-index: 8000; border-radius: 12px; padding: 12px 13px; background: var(--navy); color: #fff; font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 13px; box-shadow: 0 12px 40px rgba(54,59,108,.45); min-width: 180px; max-width: 260px; opacity: .95; transform: scale(1.04); transition: none }
+    .tcard.is-urgent { border-color: var(--org) !important; background: var(--orgl) !important; border-left: 3px solid var(--org) }
+    .tcard-name { font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 13.5px; color: var(--navy); line-height: 1.3 }
+    .tcard-date { font-size: 10.5px; color: var(--sub); margin-top: 5px; opacity: .8 }
+    .tcard-urgent-badge { display: inline-block; font-size: 10px; font-weight: 700; background: var(--org); color: #fff; padding: 2px 8px; border-radius: 20px; margin-top: 5px; text-transform: uppercase; letter-spacing: .04em }
+    .col-pending .tcard { background: var(--yll); border-color: rgba(240,165,0,.2) }
+    .col-pending .tcard:hover { border-color: var(--yl) }
+    .col-pending .tcard .tcard-name { color: #5a3e00 }
+    .col-finished .tcard { background: var(--gnl); border-color: rgba(34,200,138,.2) }
+    .col-finished .tcard:hover { border-color: var(--gn) }
+    .col-finished .tcard .tcard-name { color: var(--gnd) }
+    .ccard { background: var(--wh); border-radius: 12px; padding: 12px 13px; border: 1.5px solid rgba(224,92,122,.2); cursor: pointer; transition: all .18s }
+    .ccard:hover { border-color: var(--rd); box-shadow: 0 4px 14px rgba(224,92,122,.12); transform: translateY(-1px) }
+    .ccard-name { font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 13px; color: var(--navy); line-height: 1.3; margin-bottom: 6px }
+    .ccard-date { font-size: 10.5px; color: var(--sub); margin-top: 4px; opacity: .8 }
+    .pill-row { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 4px }
+    .pill { display: inline-flex; align-items: center; font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 20px; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap }
+    .pill-open { background: var(--rdl); color: var(--rd) }
+    .pill-fixed { background: var(--yll); color: #7a5500 }
+    .pill-approved { background: var(--gnl); color: var(--gnd) }
+    .empty-col { text-align: center; padding: 2rem 1rem; color: var(--sub); font-size: 12.5px; opacity: .7 }
+    .overlay { display: none; position: fixed; inset: 0; background: rgba(30,34,68,.72); z-index: 500; align-items: center; justify-content: center; padding: 1rem; backdrop-filter: blur(5px) }
+    .overlay.open { display: flex }
+    .ov-box { background: var(--wh); border-radius: 24px; padding: 2.25rem; max-width: 580px; width: 100%; max-height: 91vh; overflow-y: auto; position: relative; box-shadow: 0 40px 100px rgba(30,34,68,.35) }
+    .ov-box::-webkit-scrollbar { width: 4px }
+    .ov-box::-webkit-scrollbar-thumb { background: var(--brd); border-radius: 4px }
+    .ov-close { position: absolute; top: 18px; right: 18px; background: var(--lavl); border: none; width: 34px; height: 34px; border-radius: 50%; cursor: pointer; font-size: 17px; color: var(--sub); display: flex; align-items: center; justify-content: center; transition: all .2s }
+    .ov-close:hover { background: var(--navy); color: var(--wh) }
+    .ov-title { font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1.4rem; color: var(--navy); padding-right: 2.5rem; margin-bottom: 4px; line-height: 1.3 }
+    .ov-meta { font-size: 13px; color: var(--sub); margin-bottom: 1rem; display: flex; align-items: center; gap: 8px; flex-wrap: wrap }
+    .ov-badge { font-size: 10px; font-weight: 700; padding: 4px 11px; border-radius: 20px; text-transform: uppercase; letter-spacing: .05em }
+    .ob-pend { background: var(--lavl); color: var(--navy) }
+    .ob-done { background: var(--gnl); color: var(--gnd) }
+    .ov-date { font-size: 11px; color: var(--sub); background: var(--lavl); padding: 4px 10px; border-radius: 8px }
+    .ov-urgent-banner { background: var(--orgl); border: 1.5px solid rgba(255,107,43,.35); border-radius: 10px; padding: 11px 13px; margin-bottom: 1rem; font-size: 13px; font-weight: 700; color: var(--org); display: flex; align-items: center; gap: 8px }
+    .ov-sec { margin-bottom: 1.5rem }
+    .ov-sec-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--sub); margin-bottom: 9px }
+    .ov-desc { font-size: 14px; line-height: 1.65; background: var(--lavl); padding: 13px 15px; border-radius: 12px; color: var(--txt) }
+    .link-row { display: flex; align-items: center; gap: 9px; padding: 10px 14px; background: var(--lavl); border-radius: 10px; margin-bottom: 7px; text-decoration: none; color: var(--navy); font-size: 13px; font-weight: 600; transition: all .2s; border: 1.5px solid var(--brd); word-break: break-all }
+    .link-row:hover { background: var(--navy); color: var(--wh) }
+    .corr-item { border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; border: 1.5px solid transparent }
+    .corr-open { background: var(--rdl); border-color: rgba(224,92,122,.3) }
+    .corr-fixed { background: var(--yll); border-color: rgba(240,165,0,.3) }
+    .corr-approved { background: var(--gnl); border-color: rgba(34,200,138,.3) }
+    .corr-top { display: flex; align-items: flex-start; gap: 10px }
+    .corr-text { font-size: 13.5px; flex: 1; line-height: 1.55; color: var(--txt) }
+    .corr-status-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; margin-top: 6px }
+    .corr-open .corr-status-label { color: var(--rd) }
+    .corr-fixed .corr-status-label { color: #7a5500 }
+    .corr-approved .corr-text { text-decoration: line-through; opacity: .6 }
+    .corr-approved .corr-status-label { color: var(--gnd) }
+    .fix-btn { font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 11.5px; padding: 6px 13px; border-radius: 8px; border: none; cursor: pointer; transition: all .2s; white-space: nowrap; flex-shrink: 0 }
+    .fix-btn-do { background: var(--navy); color: var(--wh) }
+    .fix-btn-do:hover { background: var(--navy2) }
+    .fix-btn-wait { background: var(--gnl); color: var(--gnd); cursor: default }
+    .output-send-box { background: var(--lavl); border-radius: 14px; padding: 16px; border: 1.5px solid var(--brd) }
+    .output-send-box h4 { font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 13px; color: var(--navy); margin-bottom: 4px }
+    .output-send-box p { font-size: 12px; color: var(--sub); margin-bottom: 12px; line-height: 1.5 }
+    .output-inp-row { display: flex; gap: 8px }
+    .output-inp { flex: 1; padding: 10px 13px; border: 1.5px solid var(--brd); border-radius: 9px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px; outline: none; background: var(--wh); transition: border .2s }
+    .output-inp:focus { border-color: var(--lav); box-shadow: 0 0 0 3px rgba(168,163,227,.15) }
+    .output-send-btn { background: var(--gn); color: var(--wh); border: none; padding: 10px 16px; border-radius: 9px; cursor: pointer; font-size: 12px; font-weight: 700; font-family: 'Outfit', sans-serif; transition: all .2s; white-space: nowrap }
+    .output-send-btn:hover { background: #18a872 }
+    .output-sent-item { display: flex; align-items: center; gap: 8px; padding: 9px 12px; background: var(--gnl); border-radius: 9px; margin-bottom: 6px; font-size: 13px; font-weight: 600; color: var(--gnd); word-break: break-all; text-decoration: none; border: 1.5px solid rgba(34,200,138,.25); transition: background .2s }
+    .output-sent-item:hover { background: var(--navy); color: var(--wh) }
+    .finish-wrap { margin-top: .5rem }
+    .finish-btn { background: var(--navy); color: var(--wh); border: none; padding: 12px 20px; border-radius: 11px; font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 13px; cursor: pointer; width: 100%; transition: all .2s }
+    .finish-btn:hover { background: var(--navy2); box-shadow: 0 6px 20px rgba(54,59,108,.25) }
+    .comm-item { padding: 10px 13px; background: var(--lavl); border-radius: 10px; margin-bottom: 6px }
+    .comm-from { font-size: 11px; font-weight: 700; color: var(--sub); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 3px }
+    .comm-txt { font-size: 13px; line-height: 1.55 }
+    .comm-item.from-mgr { background: var(--rdl); border-left: 3px solid var(--rd) }
+    .comm-item.from-mgr .comm-from { color: var(--rd) }
+    .pass-notice { background: var(--yll); border: 1.5px solid rgba(240,165,0,.4); border-radius: 14px; padding: 14px 16px; margin-bottom: 1rem; font-size: 13px; color: #7a5500; font-weight: 600; display: flex; align-items: center; gap: 10px }
+    .corr-block-notice { background: var(--rdl); border: 1.5px solid rgba(224,92,122,.35); border-radius: 10px; padding: 11px 14px; font-size: 13px; font-weight: 600; color: var(--rd); margin-top: 8px }
+    .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; margin-right: 6px; vertical-align: middle }
+    @keyframes spin { to { transform: rotate(360deg) } }
+  </style>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+</head>
+
+<body>
+  <!-- Loading screen: shown by default, hidden after auth resolves -->
+  <div id="loading-screen">
+    <div class="ld-logo">TASK<span>FLOW</span></div>
+    <div class="ld-bar"><div class="ld-fill"></div></div>
+  </div>
+
+  <div id="urgent-flash">
+    <div class="uf-title">🔥 URGENT!</div>
+    <div class="uf-sub">Your manager needs this done immediately</div>
+    <div class="uf-task" id="uf-task-name"></div>
+    <button class="uf-btn" onclick="dismissUrgent()">Got it — I'm on it!</button>
+  </div>
+
+  <div id="login-screen">
+    <div class="login-box">
+      <div class="login-logo">TASK<span>FLOW</span></div>
+      <div class="login-sub">Your personal task board</div>
+      <div class="login-role">Employee Sign In</div>
+      <div class="field"><label>Employee ID</label><input type="text" id="e-id" placeholder="e.g. sarah-designer" autocomplete="username"></div>
+      <div class="field"><label>Password</label><input type="password" id="e-pass" placeholder="Your password" autocomplete="current-password" onkeydown="if(event.key==='Enter')empLogin()"></div>
+      <button class="btn-primary" id="login-btn" onclick="empLogin()">Sign In →</button>
+      <div class="err-msg" id="login-err"></div>
+      <div style="margin-top:16px;font-size:12px;color:var(--sub);line-height:1.6;background:var(--lavl);border-radius:10px;padding:10px 14px;text-align:left">
+        💡 Use the Employee ID and password your manager set for you.
+      </div>
+    </div>
+  </div>
+
+  <div id="app-screen">
+    <nav>
+      <div class="nav-brand">TASK<span>FLOW</span></div>
+      <div class="nav-right">
+        <span class="nav-user" id="nav-name"></span>
+        <span class="nav-role" id="nav-role-tag">Employee</span>
+        <button class="nav-btn" onclick="logout()">Logout</button>
+      </div>
+    </nav>
+    <div id="pass-change-notice" style="display:none;padding:1rem 1.5rem 0">
+      <div class="pass-notice">⚠️ Your manager has set a new password for your account. It has been applied automatically.</div>
+    </div>
+    <div class="board-outer">
+      <div class="board" id="board">
+        <div class="col col-tasks" id="col-tasks">
+          <div class="col-head"><span class="col-title">📋 Tasks</span><span class="col-count" id="cnt-tasks">0</span></div>
+          <div class="col-hint">New tasks from manager</div>
+          <div class="col-body" id="body-tasks"></div>
+        </div>
+        <div class="col col-pending" id="col-pending">
+          <div class="col-head"><span class="col-title">⏳ In Progress</span><span class="col-count" id="cnt-pending">0</span></div>
+          <div class="col-hint">Working on it</div>
+          <div class="col-body" id="body-pending"></div>
+        </div>
+        <div class="col col-finished" id="col-finished">
+          <div class="col-head"><span class="col-title">✅ Finished</span><span class="col-count" id="cnt-finished">0</span></div>
+          <div class="col-hint">Done · send output link</div>
+          <div class="col-body" id="body-finished"></div>
+        </div>
+        <div class="col col-comments" id="col-comments">
+          <div class="col-head"><span class="col-title">💬 Corrections</span><span class="col-count" id="cnt-comments">0</span></div>
+          <div class="col-hint">Manager feedback</div>
+          <div class="col-body" id="body-comments"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="drag-ghost" style="display:none"></div>
+  <div class="overlay" id="overlay"><div class="ov-box" id="ov-box"></div></div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyAm2bx_zUwckVs9WSFZK99IEx9U93bMIMo",
+      authDomain: "testing-e7eea.firebaseapp.com",
+      projectId: "testing-e7eea",
+      storageBucket: "testing-e7eea.firebasestorage.app",
+      messagingSenderId: "203536013691",
+      appId: "1:203536013691:web:68865db00b734637a445de"
+    };
+
+    // Use a named Firebase app so this page is isolated from manager page
+    let eApp;
+    try { eApp = firebase.app('empApp'); }
+    catch (e) { eApp = firebase.initializeApp(firebaseConfig, 'empApp'); }
+    const db = eApp.firestore();
+    db.settings({ experimentalForceLongPolling: true });
+    const auth = eApp.auth();
+
+    // ─── State ─────────────────────────────────────────────────────────────────
+    let me = null;
+    let localTasks = [];
+    let unsubTasks = null;
+    let AC;
+    const EMP_SEEN_KEY = 'tf_emp_seen';
+    // Urgent flash deduplication: per-session in-memory set
+    const sessionUrgentSeen = new Set();
+
+    // FIX: Read mgr from URL param first, fall back to localStorage.
+    // We do NOT write to localStorage on every page load — only on explicit login.
+    // This prevents stale manager IDs persisting across different manager links.
+    function getInitialMgrId() {
+      const p = new URLSearchParams(window.location.search);
+      const urlMgr = p.get('mgr');
+      if (urlMgr) return urlMgr;
+      return localStorage.getItem('tf_mgr_id') || null;
+    }
+    function getInitialEmpId() {
+      const p = new URLSearchParams(window.location.search);
+      return p.get('emp') || '';
+    }
+    let prefillMgrId = getInitialMgrId();
+
+    // ─── Auth Restore ──────────────────────────────────────────────────────────
+    // FIX: Always hide loading screen after auth state resolves.
+    // If user is logged in → show app. If not → show login.
+    auth.onAuthStateChanged(async user => {
+      if (user) {
+        try {
+          const doc = await db.collection('employees').doc(user.uid).get();
+          if (doc.exists) {
+            me = doc.data();
+            // Apply pending password change if manager set one
+            if (me._pendingPass) {
+              try {
+                await user.updatePassword(me._pendingPass);
+                await db.collection('employees').doc(user.uid).update({ _pendingPass: firebase.firestore.FieldValue.delete() });
+                me._pendingPass = null;
+                document.getElementById('pass-change-notice').style.display = 'block';
+              } catch (e) {
+                // Token too old — will apply on next fresh login
+                console.warn('Could not auto-apply password change:', e.message);
+              }
+            }
+            document.getElementById('loading-screen').classList.add('hidden');
+            startApp();
+            return;
+          }
+        } catch (e) {
+          console.error('Auth restore error:', e);
+        }
+        // Employee doc doesn't exist — sign out
+        await auth.signOut();
+      }
+      // No valid user — show login
+      document.getElementById('loading-screen').classList.add('hidden');
+      showLogin();
+    });
+
+    function showLogin() {
+      document.getElementById('app-screen').style.display = 'none';
+      document.getElementById('login-screen').classList.add('show');
+      // Pre-fill employee ID from URL
+      const empId = getInitialEmpId();
+      if (empId) document.getElementById('e-id').value = empId;
+    }
+
+    // ─── Helpers ──────────────────────────────────────────────────────────────
+    function esc(s) { const d = document.createElement('div'); d.textContent = String(s||''); return d.innerHTML; }
+    function fmtDate(ts) {
+      if (!ts) return '';
+      const d = new Date(ts), now = new Date(), diff = Math.floor((now-d)/86400000);
+      const t = d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+      if (diff===0) return 'Today '+t; if (diff===1) return 'Yesterday'; if (diff<7) return diff+'d ago';
+      return d.toLocaleDateString([],{day:'numeric',month:'short'});
+    }
+    // Sanitize employee id for use in Firebase Auth email
+    function sanitizeId(id) { return id.replace(/@/g,'-').replace(/\s+/g,'_').toLowerCase(); }
+    function loadSeen() { try { return JSON.parse(localStorage.getItem(EMP_SEEN_KEY+':'+(me?me.id:'')))||{}; } catch(e) { return {}; } }
+    function saveSeen(s) { localStorage.setItem(EMP_SEEN_KEY+':'+(me?me.id:''), JSON.stringify(s)); }
+
+    // ─── Audio ─────────────────────────────────────────────────────────────────
+    function initAC() { if (!AC) AC = new (window.AudioContext||window.webkitAudioContext)(); }
+    function playNote(f,t,d,v,dl) {
+      initAC();
+      const o=AC.createOscillator(),g=AC.createGain();
+      o.connect(g);g.connect(AC.destination);
+      o.type=t||'sine';o.frequency.value=f;
+      g.gain.setValueAtTime(0,AC.currentTime+dl);
+      g.gain.linearRampToValueAtTime(v,AC.currentTime+dl+.01);
+      g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+dl+d);
+      o.start(AC.currentTime+dl);o.stop(AC.currentTime+dl+d+.05);
+    }
+    function soundNewTask() { playNote(880,'sine',.12,.2,0); playNote(1108,'sine',.25,.28,.12); }
+    function soundCompleted() { playNote(523,'sine',.1,.18,0);playNote(659,'sine',.1,.18,.08);playNote(784,'sine',.1,.18,.16);playNote(1046,'sine',.35,.32,.26); }
+    function soundUrgent() { for(let i=0;i<4;i++){playNote(880,'square',.08,.4,i*.18);playNote(1108,'square',.08,.4,i*.18+.09);} }
+
+    // ─── Login ─────────────────────────────────────────────────────────────────
+    async function empLogin() {
+      const rawId = document.getElementById('e-id').value.trim();
+      const id = sanitizeId(rawId);
+      const pass = document.getElementById('e-pass').value;
+      const errEl = document.getElementById('login-err');
+      const btn = document.getElementById('login-btn');
+      errEl.textContent = '';
+
+      if (!id || !pass) { errEl.textContent = 'Enter your Employee ID and password.'; return; }
+
+      // FIX: Re-read mgr from URL each time login is attempted.
+      // This ensures using the correct manager even if localStorage is stale.
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlMgr = urlParams.get('mgr');
+      const mgrId = urlMgr || localStorage.getItem('tf_mgr_id');
+
+      if (!mgrId) {
+        errEl.textContent = 'Missing Manager ID. Please use the login link provided by your manager.';
+        return;
+      }
+
+      btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Signing in…';
+      try {
+        const email = `${id}@${mgrId}.taskflow`;
+        const cred = await auth.signInWithEmailAndPassword(email, pass);
+        const doc = await db.collection('employees').doc(cred.user.uid).get();
+        if (!doc.exists) {
+          await auth.signOut();
+          errEl.textContent = 'Account error. Please contact your manager.';
+          btn.disabled = false; btn.textContent = 'Sign In →';
+          return;
+        }
+        me = doc.data();
+        // Apply pending password change if any
+        if (me._pendingPass) {
+          try {
+            await cred.user.updatePassword(me._pendingPass);
+            await db.collection('employees').doc(cred.user.uid).update({ _pendingPass: firebase.firestore.FieldValue.delete() });
+            me._pendingPass = null;
+            document.getElementById('pass-change-notice').style.display = 'block';
+          } catch (pe) {
+            console.warn('Could not apply pending pass:', pe.message);
+          }
+        }
+        // FIX: Only save mgr to localStorage after successful login
+        localStorage.setItem('tf_mgr_id', mgrId);
+        prefillMgrId = mgrId;
+        // onAuthStateChanged will also fire — but me is already set, so startApp() is safe to call directly
+        document.getElementById('login-screen').classList.remove('show');
+        startApp();
+      } catch (e) {
+        const isWrongPass = e.code==='auth/wrong-password'||e.code==='auth/invalid-credential';
+        const isNoUser = e.code==='auth/user-not-found';
+        if (isWrongPass) {
+          errEl.textContent = 'Incorrect password. Try again, or contact your manager if it was recently changed.';
+        } else if (isNoUser) {
+          errEl.textContent = 'Employee ID not found. Check your ID or use the correct login link.';
+        } else {
+          errEl.textContent = 'Login failed. Please use the link provided by your manager.';
+        }
+        btn.disabled = false; btn.textContent = 'Sign In →';
+      }
+    }
+
+    // ─── App ───────────────────────────────────────────────────────────────────
+    function startApp() {
+      document.getElementById('login-screen').classList.remove('show');
+      document.getElementById('app-screen').style.display = 'block';
+      document.getElementById('nav-name').textContent = me.name;
+      document.getElementById('nav-role-tag').textContent = me.role
+        ? me.role.charAt(0).toUpperCase()+me.role.slice(1)
+        : 'Employee';
+      document.getElementById('login-btn').disabled = false;
+      document.getElementById('login-btn').textContent = 'Sign In →';
+      // FIX: Unsubscribe any existing listener before creating a new one
+      if (unsubTasks) { unsubTasks(); unsubTasks = null; }
+      unsubTasks = db.collection('tasks')
+        .where('empId','==',me.id)
+        .where('managerId','==',me.managerId)
+        .onSnapshot(snap => {
+          localTasks = snap.docs.map(d => d.data());
+          checkNotifications();
+          renderBoard();
+        }, err => console.error('Tasks listener error:', err));
+    }
+
+    function logout() {
+      auth.signOut().then(() => {
+        if (unsubTasks) { unsubTasks(); unsubTasks = null; }
+        me = null; localTasks = [];
+        localStorage.removeItem('tf_mgr_id');
+        prefillMgrId = null;
+        sessionUrgentSeen.clear();
+        document.getElementById('app-screen').style.display = 'none';
+        document.getElementById('pass-change-notice').style.display = 'none';
+        document.getElementById('login-err').textContent = '';
+        document.getElementById('e-pass').value = '';
+        document.getElementById('login-btn').disabled = false;
+        document.getElementById('login-btn').textContent = 'Sign In →';
+        showLogin();
+      }).catch(e => console.error('Logout error:', e));
+    }
+
+    function dismissUrgent() { document.getElementById('urgent-flash').classList.remove('show'); }
+    function showUrgent(name) {
+      document.getElementById('uf-task-name').textContent = name;
+      document.getElementById('urgent-flash').classList.add('show');
+      soundUrgent();
+    }
+
+    // ─── Board ─────────────────────────────────────────────────────────────────
+    function hasOpenCorrections(t) {
+      return t.corrections && t.corrections.some((_,i) => !t.correctionsApproved[i]);
+    }
+
+    function renderBoard() {
+      const tasks = localTasks;
+      const inTasks=[], inPending=[], inFinished=[], inComments=[];
+      tasks.forEach(t => {
+        if (hasOpenCorrections(t)) inComments.push(t);
+        if (t.status==='finished') inFinished.push(t);
+        else if (t.kanbanCol==='pending') inPending.push(t);
+        else inTasks.push(t);
+      });
+      fillCol('tasks', inTasks);
+      fillCol('pending', inPending);
+      fillCol('finished', inFinished);
+      fillComments(inComments);
+      document.getElementById('cnt-tasks').textContent = inTasks.length;
+      document.getElementById('cnt-pending').textContent = inPending.length;
+      document.getElementById('cnt-finished').textContent = inFinished.length;
+      document.getElementById('cnt-comments').textContent = inComments.length;
+      bindDrag();
+    }
+
+    function fillCol(col, tasks) {
+      const body = document.getElementById('body-'+col);
+      body.innerHTML = tasks.length ? tasks.map(t => {
+        const urgClass = t.urgent && t.status!=='finished' ? ' is-urgent' : '';
+        const urgBadge = t.urgent && t.status!=='finished' ? `<div class="tcard-urgent-badge">🔥 Urgent</div>` : '';
+        return `<div class="tcard${urgClass}" data-id="${t.id}" data-col="${col}">
+          <div class="tcard-name">${esc(t.name)}</div>
+          <div class="tcard-date">📅 ${fmtDate(t.createdAt)}</div>${urgBadge}
+        </div>`;
+      }).join('') : '<div class="empty-col">Drop tasks here</div>';
+    }
+
+    function fillComments(tasks) {
+      const body = document.getElementById('body-comments');
+      if (!tasks.length) { body.innerHTML = '<div class="empty-col">No corrections 🎉</div>'; return; }
+      body.innerHTML = tasks.map(t => {
+        const open = t.corrections.filter((_,i) => !t.correctionsDone[i] && !t.correctionsApproved[i]).length;
+        const fixed = t.corrections.filter((_,i) => t.correctionsDone[i] && !t.correctionsApproved[i]).length;
+        const approved = t.corrections.filter((_,i) => t.correctionsApproved[i]).length;
+        return `<div class="ccard" onclick="openOv(${t.id})">
+          <div class="ccard-name">${esc(t.name)}</div>
+          <div class="pill-row">
+            ${open?`<span class="pill pill-open">🔴 ${open} to fix</span>`:''}
+            ${fixed?`<span class="pill pill-fixed">⏳ ${fixed} sent</span>`:''}
+            ${approved?`<span class="pill pill-approved">✅ ${approved} ok</span>`:''}
+          </div>
+          <div class="ccard-date">📅 ${fmtDate(t.createdAt)}</div>
+        </div>`;
+      }).join('');
+    }
+
+    // ─── Drag & Drop ───────────────────────────────────────────────────────────
+    let dragState = null;
+
+    function bindDrag() {
+      document.querySelectorAll('.tcard').forEach(card => {
+        // Remove old listeners by cloning
+        const newCard = card.cloneNode(true);
+        card.parentNode.replaceChild(newCard, card);
+      });
+      document.querySelectorAll('.tcard').forEach(card => {
+        card.addEventListener('click', e => {
+          if (dragState && dragState.moved) return;
+          openOv(Number(card.dataset.id));
+        });
+        card.addEventListener('mousedown', e => { if (e.button!==0) return; startDrag(e.clientX, e.clientY, card); e.preventDefault(); });
+        card.addEventListener('touchstart', e => { const t=e.touches[0]; startDrag(t.clientX, t.clientY, card); }, {passive:true});
+      });
+    }
+
+    function startDrag(x, y, card) {
+      dragState = { id: Number(card.dataset.id), startX:x, startY:y, moved:false, origCard:card, lastOverCol:null, ghost:null };
+    }
+
+    document.addEventListener('mousemove', e => onMove(e.clientX, e.clientY));
+    document.addEventListener('touchmove', e => {
+      if (!dragState) return;
+      const t=e.touches[0]; onMove(t.clientX, t.clientY);
+      if (dragState.moved) e.preventDefault();
+    }, {passive:false});
+
+    function onMove(x, y) {
+      if (!dragState) return;
+      const dx=x-dragState.startX, dy=y-dragState.startY;
+      if (!dragState.moved && Math.sqrt(dx*dx+dy*dy)<8) return;
+      if (!dragState.moved) {
+        dragState.moved = true;
+        dragState.origCard.classList.add('dragging');
+        const ghost = document.getElementById('drag-ghost');
+        ghost.textContent = dragState.origCard.querySelector('.tcard-name').textContent;
+        ghost.style.display = 'block';
+        dragState.ghost = ghost;
+      }
+      const g = dragState.ghost;
+      g.style.left = (x-80)+'px'; g.style.top = (y-24)+'px';
+      const el = document.elementFromPoint(x, y);
+      const col = el ? el.closest('.col') : null;
+      const colId = col ? col.id.replace('col-','') : null;
+      if (dragState.lastOverCol!==colId) {
+        if (dragState.lastOverCol) {
+          const prev = document.getElementById('col-'+dragState.lastOverCol);
+          if (prev) prev.classList.remove('drag-over');
+        }
+        if (colId && colId!=='comments') col.classList.add('drag-over');
+        dragState.lastOverCol = colId;
+      }
+    }
+
+    document.addEventListener('mouseup', e => endDrag(e.clientX, e.clientY));
+    document.addEventListener('touchend', e => {
+      if (!dragState) return;
+      const t=e.changedTouches[0]; endDrag(t.clientX, t.clientY);
+    });
+
+    function endDrag(x, y) {
+      if (!dragState) return;
+      const state = dragState; dragState = null;
+      state.origCard.classList.remove('dragging');
+      const ghost = document.getElementById('drag-ghost'); ghost.style.display = 'none';
+      if (state.lastOverCol) {
+        const prevEl = document.getElementById('col-'+state.lastOverCol);
+        if (prevEl) prevEl.classList.remove('drag-over');
+      }
+      if (!state.moved) return;
+      const el = document.elementFromPoint(x, y);
+      const col = el ? el.closest('.col') : null;
+      const colId = col ? col.id.replace('col-','') : null;
+      if (!colId || colId==='comments') return;
+      const task = localTasks.find(t => t.id===state.id);
+      if (!task) return;
+      // Block moving to finished if open corrections exist
+      if (colId==='finished' && hasOpenCorrections(task)) {
+        alert('⚠️ Please fix all corrections before marking this task as finished.');
+        return;
+      }
+      let changed = false;
+      if (colId==='finished' && task.status!=='finished') {
+        task.status='finished'; task.kanbanCol='finished'; soundCompleted(); changed=true;
+      } else if (colId==='pending' && task.kanbanCol!=='pending') {
+        task.status='pending'; task.kanbanCol='pending'; changed=true;
+      } else if (colId==='tasks' && task.kanbanCol!=='tasks') {
+        task.status='pending'; task.kanbanCol='tasks'; changed=true;
+      }
+      if (changed) db.collection('tasks').doc(String(task.id)).set(task).catch(e => console.error(e));
+    }
+
+    // ─── Overlay ───────────────────────────────────────────────────────────────
+    function openOv(id) {
+      const t = localTasks.find(x => x.id===id); if (!t) return;
+      const badge = t.status==='finished'
+        ? '<span class="ov-badge ob-done">✅ Finished</span>'
+        : '<span class="ov-badge ob-pend">⏳ Pending</span>';
+      const urgBanner = t.urgent && t.status!=='finished'
+        ? `<div class="ov-urgent-banner">🔥 URGENT — Manager wants this done immediately!</div>` : '';
+      const descH = t.desc
+        ? `<div class="ov-sec"><div class="ov-sec-label">Description</div><div class="ov-desc">${esc(t.desc)}</div></div>` : '';
+      let linksH = '';
+      if (t.links && t.links.length) {
+        linksH = `<div class="ov-sec"><div class="ov-sec-label">📎 Reference Links</div>
+          ${t.links.map(l => `<a class="link-row" href="${esc(l)}" target="_blank" rel="noopener">🔗 ${esc(l.length>52?l.slice(0,52)+'…':l)}<span style="margin-left:auto;font-size:11px;opacity:.6">Open ↗</span></a>`).join('')}
+        </div>`;
+      }
+      const lcs = t.linkComments || {};
+      const lcE = Object.entries(lcs).filter(([k,a]) => a && a.length);
+      let lcH = '';
+      if (lcE.length) {
+        lcH = `<div class="ov-sec"><div class="ov-sec-label">💬 Manager's Link Comments</div>
+          ${lcE.map(([k,arr]) => {
+            const idx = parseInt(k.slice(1)), url = t.links && t.links[idx] ? t.links[idx].slice(0,40) : 'link';
+            return arr.map(c => `<div class="comm-item from-mgr"><div class="comm-from">Manager — on: ${esc(url)}</div><div class="comm-txt">${esc(c)}</div></div>`).join('');
+          }).join('')}
+        </div>`;
+      }
+      let corrH = '';
+      if (t.corrections && t.corrections.length) {
+        corrH = `<div class="ov-sec"><div class="ov-sec-label">Corrections from Manager</div>
+          ${t.corrections.map((c,i) => {
+            const done=!!t.correctionsDone[i], appr=!!t.correctionsApproved[i];
+            let cls='corr-item ', lbl='', btn='';
+            if (appr) { cls+='corr-approved'; lbl='✅ Approved'; btn=''; }
+            else if (done) { cls+='corr-fixed'; lbl='⏳ Awaiting manager approval'; btn='<button class="fix-btn fix-btn-wait" disabled>Fixed ✓</button>'; }
+            else { cls+='corr-open'; lbl='🔴 Needs fixing'; btn=`<button class="fix-btn fix-btn-do" onclick="markFixed(${id},${i})">Mark as Fixed</button>`; }
+            return `<div class="${cls}"><div class="corr-top"><div class="corr-text">${esc(c)}</div>${btn}</div><div class="corr-status-label">${lbl}</div></div>`;
+          }).join('')}
+        </div>`;
+      }
+      const outs = t.outputLinks || [];
+      let outH = '';
+      if (outs.length) {
+        outH = `<div class="ov-sec"><div class="ov-sec-label">📤 Your Sent Outputs</div>
+          ${outs.map(o => `<a class="output-sent-item" href="${esc(o)}" target="_blank" rel="noopener">📤 ${esc(o.length>55?o.slice(0,55)+'…':o)}</a>`).join('')}
+        </div>`;
+      }
+      const roleHint = me.role==='poster' ? 'Poster image link (WhatsApp, Drive, Dropbox)'
+        : me.role==='dev' ? 'Website URL, GitHub repo, staging link'
+        : 'Drive link, WhatsApp media, or any deliverable';
+      const sendOutH = `<div class="ov-sec"><div class="output-send-box">
+        <h4>📤 Send Output / Result Link</h4>
+        <p>${roleHint}</p>
+        <div class="output-inp-row">
+          <input class="output-inp" id="oi-${id}" placeholder="https://…">
+          <button class="output-send-btn" onclick="sendOutput(${id})">Send ↗</button>
+        </div>
+      </div></div>`;
+      const comm = t.comments || [];
+      let commH = '';
+      if (comm.length) {
+        commH = `<div class="ov-sec"><div class="ov-sec-label">Comments</div>
+          ${comm.map(c => `<div class="comm-item ${c.isC||c.isLink?'from-mgr':''}"><div class="comm-from">${esc(c.from)}</div><div class="comm-txt">${esc(c.text)}</div></div>`).join('')}
+        </div>`;
+      }
+      let finishH = '';
+      if (t.status!=='finished') {
+        const openCorrs = hasOpenCorrections(t);
+        finishH = openCorrs
+          ? `<div class="corr-block-notice">⚠️ Fix all corrections before marking as finished.</div>`
+          : `<div class="finish-wrap"><button class="finish-btn" onclick="markFinished(${id})">Mark as Finished ✓</button></div>`;
+      }
+      document.getElementById('ov-box').innerHTML = `
+        <button class="ov-close" onclick="closeOv()">✕</button>
+        <div class="ov-title">${esc(t.name)}</div>
+        <div class="ov-meta">Assigned to you ${badge}<span class="ov-date">📅 ${fmtDate(t.createdAt)}</span></div>
+        ${urgBanner}${descH}${linksH}${lcH}${corrH}${outH}${sendOutH}${commH}${finishH}`;
+      document.getElementById('overlay').classList.add('open');
+    }
+
+    function closeOv() { document.getElementById('overlay').classList.remove('open'); }
+    document.getElementById('overlay').addEventListener('click', function(e) { if (e.target===this) closeOv(); });
+
+    function markFixed(id, idx) {
+      const t = localTasks.find(x => x.id===id); if (!t) return;
+      t.correctionsDone[idx] = true;
+      db.collection('tasks').doc(String(t.id)).set(t).catch(e => console.error(e));
+      openOv(id);
+    }
+    function markFinished(id) {
+      const t = localTasks.find(x => x.id===id); if (!t) return;
+      if (hasOpenCorrections(t)) { alert('⚠️ Please fix all corrections before marking as finished.'); return; }
+      t.status='finished'; t.kanbanCol='finished';
+      db.collection('tasks').doc(String(t.id)).set(t).catch(e => console.error(e));
+      soundCompleted(); closeOv();
+    }
+    function sendOutput(id) {
+      const inp = document.getElementById('oi-'+id);
+      if (!inp || !inp.value.trim()) return;
+      const url = inp.value.trim();
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        alert('Please enter a valid URL starting with https://');
+        return;
+      }
+      const t = localTasks.find(x => x.id===id); if (!t) return;
+      if (!t.outputLinks) t.outputLinks = [];
+      t.outputLinks.push(url);
+      if (!t.comments) t.comments = [];
+      t.comments.push({ from:'Employee (output)', text:'Output: '+url, isC:false });
+      db.collection('tasks').doc(String(t.id)).set(t).catch(e => console.error(e));
+      openOv(id);
+    }
+
+    // ─── Notifications ──────────────────────────────────────────────────────────
+    function checkNotifications() {
+      if (!me || document.getElementById('app-screen').style.display!=='block') return;
+      const seen = loadSeen(); let changed = false;
+      localTasks.forEach(t => {
+        if (!seen['new_'+t.id]) {
+          seen['new_'+t.id] = true;
+          soundNewTask();
+          changed = true;
+        }
+        // FIX: Use sessionUrgentSeen (in-memory) so urgent flash only fires once per
+        // browser session per task — not on every Firestore snapshot update
+        if (t.urgent && t.status!=='finished' && !sessionUrgentSeen.has('urg_'+t.id)) {
+          sessionUrgentSeen.add('urg_'+t.id);
+          showUrgent(t.name);
+          changed = true;
+        }
+      });
+      if (changed) saveSeen(seen);
+    }
+  </script>
+</body>
+</html>

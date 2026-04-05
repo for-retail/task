@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>TaskFlow — Manager</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0 }
+    :root {
+      --navy: #363b6c; --navy2: #2a2f58; --navy3: #1e2244;
+      --lavl: #eaedfe; --lav: #a8a3e3; --lavm: #c6c9e7;
+      --wh: #ffffff; --bg: #f0f1fc;
+      --gn: #22c88a; --gnl: #d4f5e9; --gnd: #0e7a52;
+      --rd: #e05c7a; --rdl: #fde8ee;
+      --yl: #f0a500; --yll: #fff3d6;
+      --org: #ff6b2b; --orgl: #fff0e8;
+      --txt: #1e2244; --sub: #7678a0; --brd: rgba(168,163,227,.25);
+    }
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); color: var(--txt); min-height: 100vh }
+
+    /* ── Loading Screen ── */
+    #loading-screen {
+      position: fixed; inset: 0;
+      background: linear-gradient(135deg, var(--navy3), var(--navy));
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9999; flex-direction: column; gap: 16px
+    }
+    #loading-screen.hidden { display: none }
+    .ld-logo { font-family: 'Outfit', sans-serif; font-weight: 800; color: #fff; font-size: 2rem; letter-spacing: .1em }
+    .ld-logo span { color: var(--lav) }
+    .ld-bar { width: 160px; height: 3px; background: rgba(255,255,255,.15); border-radius: 4px; overflow: hidden }
+    .ld-fill { height: 100%; background: var(--lav); border-radius: 4px; animation: ldfill 1.2s ease forwards }
+    @keyframes ldfill { from { width: 0 } to { width: 100% } }
+
+    /* ── Login ── */
+    #login-screen { display: none; align-items: center; justify-content: center; min-height: 100vh; padding: 1rem; background: linear-gradient(135deg, var(--navy3) 0%, var(--navy) 60%, #5856a0 100%) }
+    #login-screen.show { display: flex }
+    .login-box { background: var(--wh); border-radius: 28px; padding: 3rem 2.5rem; max-width: 420px; width: 100%; box-shadow: 0 32px 80px rgba(30,34,68,.35); text-align: center }
+    .login-logo { font-family: 'Outfit', sans-serif; font-weight: 800; color: var(--navy); font-size: 2rem; letter-spacing: .1em; margin-bottom: 6px }
+    .login-logo span { color: var(--lav) }
+    .login-sub { font-size: 13px; color: var(--sub); margin-bottom: 2rem }
+    .login-role { display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; padding: 5px 16px; border-radius: 20px; background: var(--lavl); color: var(--navy); margin-bottom: 1.75rem }
+    .field { margin-bottom: 1rem; text-align: left }
+    .field label { display: block; font-size: 11px; font-weight: 700; color: var(--sub); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 7px }
+    .field input, .field select, .field textarea { width: 100%; padding: 12px 15px; border: 1.5px solid var(--brd); border-radius: 12px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 14px; background: var(--lavl); color: var(--txt); outline: none; transition: all .2s }
+    .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--lav); background: var(--wh); box-shadow: 0 0 0 3px rgba(168,163,227,.18) }
+    .field select { appearance: none; cursor: pointer }
+    .field textarea { resize: vertical; min-height: 80px; line-height: 1.6 }
+    .btn-primary { background: var(--navy); color: var(--wh); border: none; padding: 13px 24px; border-radius: 12px; font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 14px; cursor: pointer; width: 100%; letter-spacing: .04em; transition: all .2s; margin-top: .25rem }
+    .btn-primary:hover { background: var(--navy2); transform: translateY(-1px); box-shadow: 0 8px 24px rgba(54,59,108,.3) }
+    .btn-primary:disabled { opacity: .6; cursor: not-allowed; transform: none; box-shadow: none }
+    .err-msg { font-size: 13px; color: var(--rd); margin-top: 10px; min-height: 20px }
+    .suc-msg { font-size: 13px; color: var(--gnd); margin-top: 10px; min-height: 20px }
+
+    /* ── App ── */
+    #app-screen { display: none }
+    #app-screen.show { display: block }
+    nav { background: var(--navy3); height: 60px; display: flex; align-items: center; justify-content: space-between; padding: 0 2.5rem; position: sticky; top: 0; z-index: 200; box-shadow: 0 2px 20px rgba(30,34,68,.3) }
+    .nav-brand { font-family: 'Outfit', sans-serif; font-weight: 800; color: var(--wh); font-size: 1.15rem; letter-spacing: .12em }
+    .nav-brand span { color: var(--lav) }
+    .nav-right { display: flex; align-items: center; gap: 10px }
+    .nav-role { font-size: 11px; font-weight: 700; color: var(--lavm); background: rgba(168,163,227,.15); padding: 5px 14px; border-radius: 20px; letter-spacing: .07em; text-transform: uppercase }
+    .nav-btn { background: none; border: 1px solid rgba(168,163,227,.3); color: var(--lavm); font-size: 13px; padding: 6px 16px; border-radius: 20px; cursor: pointer; font-family: 'Plus Jakarta Sans', sans-serif; transition: all .2s }
+    .nav-btn:hover { border-color: var(--lav); color: var(--wh) }
+    .tabs { max-width: 1400px; margin: 0 auto; padding: 2rem 2rem 0 }
+    .tab-row { display: inline-flex; gap: 4px; background: rgba(54,59,108,.08); padding: 4px; border-radius: 14px; margin-bottom: 2rem; flex-wrap: wrap }
+    .tab { background: none; border: none; padding: 9px 20px; border-radius: 10px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 13px; color: var(--sub); transition: all .2s; letter-spacing: .03em }
+    .tab.active { background: var(--navy); color: var(--wh); box-shadow: 0 4px 12px rgba(54,59,108,.25) }
+    .tab:hover:not(.active) { color: var(--navy) }
+    main { max-width: 1400px; margin: 0 auto; padding: 0 2rem 2rem }
+    .stats { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 2rem }
+    .stat { background: var(--wh); border-radius: 16px; padding: 14px 20px; border: 1.5px solid var(--brd); text-align: center; min-width: 100px; box-shadow: 0 2px 12px rgba(54,59,108,.06) }
+    .stat-num { font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1.9rem; line-height: 1 }
+    .stat-num.n { color: var(--navy) } .stat-num.l { color: var(--lav) } .stat-num.g { color: var(--gn) }
+    .stat-num.r { color: var(--rd) } .stat-num.y { color: var(--yl) } .stat-num.o { color: var(--org) }
+    .stat-label { font-size: 11px; font-weight: 600; color: var(--sub); text-transform: uppercase; letter-spacing: .06em; margin-top: 4px }
+    .card { background: var(--wh); border-radius: 20px; padding: 1.75rem; border: 1.5px solid var(--brd); margin-bottom: 1.5rem; box-shadow: 0 2px 16px rgba(54,59,108,.06) }
+    .card-title { font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 1rem; color: var(--navy); margin-bottom: 1.4rem; display: flex; align-items: center; gap: 8px }
+    .grid2 { display: grid; grid-template-columns: 430px 1fr; gap: 2rem; align-items: start }
+    @media(max-width:960px) { .grid2 { grid-template-columns: 1fr } }
+    .imp-row { display: flex; align-items: center; gap: 10px; margin-bottom: 1rem; padding: 12px 14px; background: var(--orgl); border-radius: 12px; border: 1.5px solid rgba(255,107,43,.2); cursor: pointer; user-select: none; transition: all .2s }
+    .imp-row:hover, .imp-row.on { border-color: var(--org) }
+    .imp-check { width: 22px; height: 22px; border-radius: 6px; border: 2px solid rgba(255,107,43,.4); display: flex; align-items: center; justify-content: center; font-size: 13px; background: var(--wh); transition: all .2s; flex-shrink: 0 }
+    .imp-check.on { background: var(--org); border-color: var(--org) }
+    .imp-label { font-size: 13px; font-weight: 700; color: var(--org) }
+    .imp-sub { font-size: 11px; color: var(--sub); margin-top: 1px }
+    .filter-row { display: flex; gap: 7px; margin-bottom: 12px; flex-wrap: wrap }
+    .filter-btn { background: var(--lavl); border: 1.5px solid var(--brd); color: var(--sub); font-size: 12px; font-weight: 700; font-family: 'Outfit', sans-serif; padding: 5px 13px; border-radius: 20px; cursor: pointer; transition: all .2s }
+    .filter-btn:hover, .filter-btn.active { background: var(--navy); color: var(--wh); border-color: var(--navy) }
+    .emp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px }
+    .emp-card { background: var(--lavl); border-radius: 14px; padding: 15px 17px; border: 1.5px solid var(--brd); display: flex; align-items: flex-start; gap: 12px }
+    .emp-avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--navy); display: flex; align-items: center; justify-content: center; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 16px; color: var(--wh); flex-shrink: 0 }
+    .emp-info { flex: 1; min-width: 0 }
+    .emp-name { font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 14px; color: var(--navy) }
+    .emp-id { font-size: 11.5px; color: var(--sub); margin-top: 2px }
+    .link-copy-row { display: flex; gap: 7px; margin-top: 8px }
+    .link-display { flex: 1; padding: 7px 11px; border: 1.5px solid var(--brd); border-radius: 9px; font-size: 11.5px; color: var(--sub); background: var(--wh); white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+    .copy-btn { background: var(--navy); color: var(--wh); border: none; padding: 7px 12px; border-radius: 9px; cursor: pointer; font-size: 11px; font-weight: 700; font-family: 'Outfit', sans-serif; transition: all .2s; white-space: nowrap }
+    .copy-btn:hover { background: var(--navy2) }
+    .copy-btn.copied { background: var(--gn) }
+    .emp-actions { display: flex; gap: 5px; margin-top: 8px; flex-wrap: wrap }
+    .emp-action-btn { background: none; border: 1.5px solid var(--brd); color: var(--sub); font-size: 11px; font-weight: 700; font-family: 'Outfit', sans-serif; padding: 4px 10px; border-radius: 7px; cursor: pointer; transition: all .2s; white-space: nowrap }
+    .emp-action-btn:hover { border-color: var(--navy); color: var(--navy) }
+    .emp-action-btn.danger:hover { border-color: var(--rd); color: var(--rd) }
+    .role-tag { display: inline-block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; padding: 3px 9px; border-radius: 20px; margin-top: 4px }
+    .role-poster { background: #ffe8f5; color: #9c3575 }
+    .role-dev { background: #e8f0ff; color: var(--navy) }
+    .role-general { background: var(--lavl); color: var(--sub) }
+    .feed { display: flex; flex-direction: column; gap: 9px; max-height: 72vh; overflow-y: auto; padding-right: 3px }
+    .feed::-webkit-scrollbar { width: 4px }
+    .feed::-webkit-scrollbar-thumb { background: var(--brd); border-radius: 4px }
+    .task-card { background: var(--lavl); border-radius: 14px; padding: 13px 15px; border: 1.5px solid var(--brd); cursor: pointer; transition: all .2s }
+    .task-card:hover { border-color: var(--lav); transform: translateY(-1px); box-shadow: 0 4px 18px rgba(168,163,227,.2) }
+    .task-card.t-done { border-color: rgba(34,200,138,.3); background: var(--gnl) }
+    .task-card.t-review { border-color: rgba(240,165,0,.4); background: var(--yll) }
+    .task-card.t-urgent { border-color: var(--org); background: var(--orgl); border-left: 4px solid var(--org) }
+    .task-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 4px }
+    .task-name { font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 14px; color: var(--navy); line-height: 1.3 }
+    .task-meta { font-size: 11.5px; color: var(--sub); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 2px }
+    .task-date { font-size: 11px; background: rgba(118,120,160,.1); padding: 2px 8px; border-radius: 6px; color: var(--sub) }
+    .task-note { font-size: 11.5px; color: var(--yl); margin-top: 5px; font-weight: 600 }
+    .badges { display: flex; gap: 5px; flex-wrap: wrap; align-items: center }
+    .badge { font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap }
+    .b-pend { background: var(--lavl); color: var(--navy); border: 1px solid var(--brd) }
+    .b-done { background: var(--gnl); color: #0e7a52 }
+    .b-rev { background: var(--yll); color: #9a6800 }
+    .b-out { background: #e8e6ff; color: var(--navy) }
+    .b-urg { background: var(--org); color: var(--wh) }
+    .notif-dot { width: 9px; height: 9px; background: var(--yl); border-radius: 50%; display: inline-block; animation: pulse 1.5s infinite }
+    @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .3 } }
+    .emp-section { margin-bottom: 1.25rem }
+    .emp-section-head { display: flex; align-items: center; gap: 10px; padding: 11px 14px; background: var(--lavl); border-radius: 12px; cursor: pointer; transition: background .2s; user-select: none }
+    .emp-section-head:hover { background: rgba(168,163,227,.3) }
+    .esh-avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--navy); display: flex; align-items: center; justify-content: center; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 13px; color: var(--wh); flex-shrink: 0 }
+    .esh-name { font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 14px; color: var(--navy); flex: 1 }
+    .esh-stats { font-size: 12px; color: var(--sub) }
+    .esh-tog { font-size: 14px; color: var(--sub); transition: transform .2s }
+    .emp-section-body { display: flex; flex-direction: column; gap: 8px; padding: 10px 4px 0 4px }
+    .emp-section-body.collapsed { display: none }
+    .overlay { display: none; position: fixed; inset: 0; background: rgba(30,34,68,.7); z-index: 500; align-items: center; justify-content: center; padding: 1rem; backdrop-filter: blur(4px) }
+    .overlay.open { display: flex }
+    .ov-box { background: var(--wh); border-radius: 24px; padding: 2.25rem; max-width: 600px; width: 100%; max-height: 90vh; overflow-y: auto; position: relative; box-shadow: 0 40px 100px rgba(30,34,68,.35) }
+    .ov-box::-webkit-scrollbar { width: 4px }
+    .ov-box::-webkit-scrollbar-thumb { background: var(--brd); border-radius: 4px }
+    .ov-close { position: absolute; top: 18px; right: 18px; background: var(--lavl); border: none; width: 34px; height: 34px; border-radius: 50%; cursor: pointer; font-size: 18px; color: var(--sub); display: flex; align-items: center; justify-content: center; transition: all .2s }
+    .ov-close:hover { background: var(--navy); color: var(--wh) }
+    .ov-title { font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1.45rem; color: var(--navy); padding-right: 2.5rem; margin-bottom: 3px; line-height: 1.3 }
+    .ov-meta { font-size: 13px; color: var(--sub); margin-bottom: 1rem; display: flex; gap: 8px; flex-wrap: wrap; align-items: center }
+    .ov-badge { font-size: 10px; font-weight: 700; padding: 4px 11px; border-radius: 20px; text-transform: uppercase; letter-spacing: .05em }
+    .ob-pend { background: var(--lavl); color: var(--navy) }
+    .ob-done { background: var(--gnl); color: var(--gnd) }
+    .ov-date { font-size: 11px; color: var(--sub); background: var(--lavl); padding: 4px 10px; border-radius: 8px }
+    .ov-urgent-banner { background: var(--orgl); border: 1.5px solid rgba(255,107,43,.35); border-radius: 10px; padding: 11px 13px; margin-bottom: 1rem; font-size: 13px; font-weight: 700; color: var(--org); display: flex; align-items: center; gap: 8px }
+    .ov-sec { margin-bottom: 1.4rem }
+    .ov-sec-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--sub); margin-bottom: 9px }
+    .ov-desc { font-size: 14px; line-height: 1.65; background: var(--lavl); padding: 13px 15px; border-radius: 12px; color: var(--txt) }
+    .link-inspect-card { background: var(--lavl); border-radius: 12px; border: 1.5px solid var(--brd); margin-bottom: 8px; overflow: hidden }
+    .link-inspect-head { display: flex; align-items: center; gap: 10px; padding: 11px 14px; cursor: pointer; transition: background .2s }
+    .link-inspect-head:hover { background: rgba(168,163,227,.2) }
+    .link-inspect-url { font-size: 12.5px; color: var(--navy); font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+    .link-inspect-actions { display: flex; gap: 6px; flex-shrink: 0; align-items: center }
+    .li-btn { font-size: 11px; font-weight: 700; font-family: 'Outfit', sans-serif; padding: 5px 11px; border-radius: 7px; border: none; cursor: pointer; transition: all .2s; white-space: nowrap }
+    .li-btn.open { background: var(--navy); color: var(--wh) }
+    .li-btn.open:hover { background: var(--navy2) }
+    .li-preview { display: none; padding: 0 14px 12px; border-top: 1px solid var(--brd) }
+    .li-preview iframe { width: 100%; height: 260px; border: none; border-radius: 8px; background: #fafafa; margin-top: 10px }
+    .li-note { font-size: 12px; color: var(--sub); margin-top: 8px; font-style: italic }
+    .li-comment-row { display: flex; gap: 8px; margin-top: 10px }
+    .li-comment-inp { flex: 1; padding: 9px 12px; border: 1.5px solid var(--brd); border-radius: 9px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px; outline: none; transition: border .2s; background: var(--wh) }
+    .li-comment-inp:focus { border-color: var(--lav) }
+    .li-comment-send { background: var(--navy); color: var(--wh); border: none; padding: 9px 14px; border-radius: 9px; cursor: pointer; font-size: 12px; font-weight: 700; font-family: 'Outfit', sans-serif; transition: all .2s; white-space: nowrap }
+    .li-comment-send:hover { background: var(--navy2) }
+    .output-section { background: var(--gnl); border-radius: 12px; padding: 14px 16px; border: 1.5px solid rgba(34,200,138,.3) }
+    .output-link-display { display: flex; align-items: center; gap: 9px; padding: 9px 13px; background: var(--wh); border-radius: 9px; margin-bottom: 6px; text-decoration: none; color: var(--navy); font-size: 13px; font-weight: 600; border: 1.5px solid rgba(34,200,138,.3); word-break: break-all; transition: background .2s }
+    .output-link-display:hover { background: var(--lavl) }
+    .corr-row { display: flex; align-items: flex-start; gap: 10px; padding: 10px 13px; background: var(--rdl); border-radius: 10px; border-left: 3px solid var(--rd); margin-bottom: 7px }
+    .corr-text { font-size: 13px; flex: 1; line-height: 1.55; color: var(--txt) }
+    .corr-text.struck { text-decoration: line-through; opacity: .55; color: var(--sub) }
+    .approve-btn { background: var(--navy); color: var(--wh); border: none; padding: 5px 13px; border-radius: 7px; cursor: pointer; font-size: 12px; font-weight: 700; font-family: 'Outfit', sans-serif; transition: all .2s; white-space: nowrap; flex-shrink: 0 }
+    .approve-btn:hover { background: var(--navy2) }
+    .approve-btn.done { background: var(--gn); cursor: default }
+    .await-lbl { font-size: 12px; color: var(--sub); font-style: italic; flex-shrink: 0; padding-top: 3px }
+    .corr-input-row { display: flex; gap: 8px; margin-top: 8px }
+    .corr-input { flex: 1; padding: 10px 13px; border: 1.5px solid var(--brd); border-radius: 9px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px; outline: none; transition: border .2s; background: var(--lavl) }
+    .corr-input:focus { border-color: var(--lav) }
+    .corr-send { background: var(--navy); color: var(--wh); border: none; padding: 10px 16px; border-radius: 9px; cursor: pointer; font-size: 13px; font-weight: 700; font-family: 'Outfit', sans-serif; transition: all .2s; white-space: nowrap }
+    .corr-send:hover { background: var(--navy2) }
+    .comment-item { padding: 10px 13px; background: var(--lavl); border-radius: 10px; margin-bottom: 6px }
+    .comment-from { font-size: 11px; font-weight: 700; color: var(--sub); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 3px }
+    .comment-txt { font-size: 13px; line-height: 1.55 }
+    .comment-item.c-mgr { background: var(--rdl); border-left: 3px solid var(--rd) }
+    .comment-item.c-mgr .comment-from { color: var(--rd) }
+    .comment-item.c-link { background: #e8f0ff; border-left: 3px solid var(--lav) }
+    .comment-item.c-link .comment-from { color: var(--navy) }
+    .empty-state { text-align: center; padding: 2.5rem 1rem; color: var(--sub); font-size: 13px }
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(30,34,68,.75); z-index: 600; align-items: center; justify-content: center; padding: 1rem; backdrop-filter: blur(5px) }
+    .modal-overlay.open { display: flex }
+    .modal-box { background: var(--wh); border-radius: 22px; padding: 2rem; max-width: 440px; width: 100%; position: relative; box-shadow: 0 32px 80px rgba(30,34,68,.35) }
+    .modal-title { font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1.2rem; color: var(--navy); margin-bottom: 1.4rem; padding-right: 2rem }
+    .modal-close { position: absolute; top: 16px; right: 16px; background: var(--lavl); border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 16px; color: var(--sub); display: flex; align-items: center; justify-content: center; transition: all .2s }
+    .modal-close:hover { background: var(--navy); color: var(--wh) }
+    .modal-err { font-size: 13px; color: var(--rd); margin-top: 8px; min-height: 18px }
+    .modal-suc { font-size: 13px; color: var(--gnd); margin-top: 8px; min-height: 18px }
+    .modal-actions { display: flex; gap: 8px; margin-top: 1rem }
+    .btn-danger { background: var(--rd); color: var(--wh); border: none; padding: 11px 20px; border-radius: 11px; font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 13px; cursor: pointer; transition: all .2s; flex: 1 }
+    .btn-danger:hover { background: #c0435e }
+    .btn-save { background: var(--navy); color: var(--wh); border: none; padding: 11px 20px; border-radius: 11px; font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 13px; cursor: pointer; transition: all .2s; flex: 2 }
+    .btn-save:hover { background: var(--navy2) }
+    .btn-save:disabled, .btn-danger:disabled { opacity: .6; cursor: not-allowed }
+    .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; margin-right: 6px; vertical-align: middle }
+    @keyframes spin { to { transform: rotate(360deg) } }
+  </style>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+</head>
+
+<body>
+
+  <!-- Loading screen shown by default until auth state resolves -->
+  <div id="loading-screen">
+    <div class="ld-logo">TASK<span>FLOW</span></div>
+    <div class="ld-bar"><div class="ld-fill"></div></div>
+  </div>
+
+  <div id="login-screen">
+    <div class="login-box">
+      <div class="login-logo">TASK<span>FLOW</span></div>
+      <div class="login-sub">Team task management system</div>
+      <div class="login-role" id="login-role-txt">Manager Portal</div>
+      <div class="field" id="mgr-name-field" style="display:none">
+        <label>Name</label>
+        <input type="text" id="mgr-name" placeholder="Your Name">
+      </div>
+      <div class="field"><label>Email</label><input type="email" id="mgr-email" placeholder="manager@example.com" autocomplete="email"></div>
+      <div class="field"><label>Password</label><input type="password" id="mgr-pass" placeholder="Enter password" autocomplete="current-password" onkeydown="if(event.key==='Enter')mgrLogin()"></div>
+      <button class="btn-primary" id="login-btn" onclick="mgrLogin()">Sign In as Manager</button>
+      <div class="err-msg" id="login-err"></div>
+      <div style="margin-top:15px;font-size:13px;color:var(--sub);cursor:pointer;text-decoration:underline" onclick="toggleAuthMode()" id="mode-toggle">No account? Create one</div>
+    </div>
+  </div>
+
+  <div id="app-screen">
+    <nav>
+      <div class="nav-brand">TASK<span>FLOW</span></div>
+      <div class="nav-right">
+        <span style="color:white;font-weight:700;font-size:13px;margin-right:8px" id="mgr-nav-name"></span>
+        <span class="nav-role">Manager</span>
+        <button class="nav-btn" onclick="logout()">Logout</button>
+      </div>
+    </nav>
+    <div class="tabs">
+      <div class="tab-row">
+        <button class="tab active" id="tab-tasks" onclick="switchTab('tasks')">All Tasks</button>
+        <button class="tab" id="tab-byemp" onclick="switchTab('byemp')">By Employee</button>
+        <button class="tab" id="tab-employees" onclick="switchTab('employees')">Employees</button>
+      </div>
+    </div>
+    <main>
+      <div id="pane-tasks">
+        <div class="stats">
+          <div class="stat"><div class="stat-num n" id="s-total">0</div><div class="stat-label">Total</div></div>
+          <div class="stat"><div class="stat-num l" id="s-pending">0</div><div class="stat-label">Pending</div></div>
+          <div class="stat"><div class="stat-num g" id="s-done">0</div><div class="stat-label">Finished</div></div>
+          <div class="stat"><div class="stat-num y" id="s-review">0</div><div class="stat-label">Review</div></div>
+          <div class="stat"><div class="stat-num o" id="s-urgent">0</div><div class="stat-label">Urgent</div></div>
+          <div class="stat"><div class="stat-num n" id="s-output">0</div><div class="stat-label">Output</div></div>
+        </div>
+        <div class="grid2">
+          <div>
+            <div class="card">
+              <div class="card-title">Assign New Task</div>
+              <div class="field"><label>Assign To</label><select id="f-emp"><option value="">— select employee —</option></select></div>
+              <div class="field"><label>Task Name</label><input type="text" id="f-task" placeholder="e.g. Design Instagram post"></div>
+              <div class="field"><label>Description <span style="opacity:.5;font-weight:400;text-transform:none;font-size:10px">(optional)</span></label><textarea id="f-desc" placeholder="Detailed instructions…"></textarea></div>
+              <div class="field"><label>Reference Links <span style="opacity:.5;font-weight:400;text-transform:none;font-size:10px">(one per line)</span></label><textarea id="f-links" style="min-height:60px" placeholder="https://drive.google.com/…"></textarea></div>
+              <div class="imp-row" id="imp-row" onclick="toggleImp()">
+                <div class="imp-check" id="imp-check">🔥</div>
+                <div><div class="imp-label">🔥 Mark as Urgent — Do It Now!</div><div class="imp-sub">Employee gets a special alert sound</div></div>
+              </div>
+              <button class="btn-primary" id="add-task-btn" onclick="addTask()">Assign Task →</button>
+            </div>
+          </div>
+          <div>
+            <div class="card">
+              <div class="card-title">All Tasks <span id="notif-dot" class="notif-dot" style="display:none"></span></div>
+              <div class="filter-row">
+                <button class="filter-btn active" id="f-all" onclick="setFilter('all')">All</button>
+                <button class="filter-btn" id="f-pending" onclick="setFilter('pending')">Pending</button>
+                <button class="filter-btn" id="f-finished" onclick="setFilter('finished')">Finished</button>
+                <button class="filter-btn" id="f-urgent2" onclick="setFilter('urgent')">🔥 Urgent</button>
+                <button class="filter-btn" id="f-review" onclick="setFilter('review')">⚡ Review</button>
+                <button class="filter-btn" id="f-output" onclick="setFilter('output')">📤 Output</button>
+              </div>
+              <div class="feed" id="task-feed"><div class="empty-state">No tasks yet</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="pane-byemp" style="display:none">
+        <div class="card"><div class="card-title">Tasks by Employee</div><div id="byemp-list"><div class="empty-state">No tasks yet</div></div></div>
+      </div>
+      <div id="pane-employees" style="display:none">
+        <div class="grid2">
+          <div>
+            <div class="card">
+              <div class="card-title">Add Employee</div>
+              <div class="field"><label>Full Name</label><input type="text" id="e-name" placeholder="e.g. Sarah Khan"></div>
+              <div class="field"><label>Employee ID <span style="opacity:.5;font-weight:400;text-transform:none;font-size:10px">(used to log in)</span></label><input type="text" id="e-id" placeholder="e.g. sarah-designer"></div>
+              <div class="field"><label>Password</label><input type="password" id="e-pass" placeholder="Set a password (min 6 chars)"></div>
+              <button class="btn-primary" id="emp-create-btn" onclick="createEmployee()">Create Account →</button>
+              <div class="err-msg" id="emp-err"></div>
+              <div class="suc-msg" id="emp-suc"></div>
+            </div>
+          </div>
+          <div>
+            <div class="card"><div class="card-title">Team Members</div><div id="emp-list"><div class="empty-state">No employees yet</div></div></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div class="overlay" id="overlay"><div class="ov-box" id="ov-box"></div></div>
+
+  <div class="modal-overlay" id="edit-emp-modal">
+    <div class="modal-box">
+      <button class="modal-close" onclick="closeEditModal()">✕</button>
+      <div class="modal-title">Edit Employee</div>
+      <input type="hidden" id="edit-emp-uid">
+      <div class="field"><label>Full Name</label><input type="text" id="edit-emp-name" placeholder="Full name"></div>
+      <div class="field"><label>Role</label><input type="text" id="edit-emp-role" placeholder="e.g. designer, dev, general"></div>
+      <div class="field">
+        <label>New Password <span style="opacity:.5;font-weight:400;text-transform:none;font-size:10px">(leave blank to keep current)</span></label>
+        <input type="password" id="edit-emp-pass" placeholder="Enter new password (min 6 chars)">
+      </div>
+      <div class="modal-err" id="edit-emp-err"></div>
+      <div class="modal-suc" id="edit-emp-suc"></div>
+      <div class="modal-actions">
+        <button class="btn-danger" id="edit-del-btn" onclick="confirmDeleteEmployee()">🗑 Delete</button>
+        <button class="btn-save" id="edit-save-btn" onclick="saveEmployeeEdit()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyAm2bx_zUwckVs9WSFZK99IEx9U93bMIMo",
+      authDomain: "testing-e7eea.firebaseapp.com",
+      projectId: "testing-e7eea",
+      storageBucket: "testing-e7eea.firebasestorage.app",
+      messagingSenderId: "203536013691",
+      appId: "1:203536013691:web:68865db00b734637a445de"
+    };
+
+    // Primary app (manager)
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    db.settings({ experimentalForceLongPolling: true });
+    const auth = firebase.auth();
+
+    // Secondary app — only for creating employee Firebase Auth accounts
+    // so creating an employee doesn't log OUT the manager
+    let secondaryApp;
+    try { secondaryApp = firebase.app('secondary'); }
+    catch (e) { secondaryApp = firebase.initializeApp(firebaseConfig, 'secondary'); }
+    const secondaryAuth = secondaryApp.auth();
+
+    // ─── State ─────────────────────────────────────────────────────────────────
+    const SEEN_KEY = 'tf_mgr_seen';
+    let isImportant = false;
+    let currentFilter = 'all';
+    let collapsedEmps = {};
+    let AC;
+    let localTasks = [];
+    let localEmps = [];
+    let unsubTasks = null;
+    let unsubEmps = null;
+    let currentManagerUid = null;
+    // Track whether we've fully initialised the app UI for the current user
+    let appInitialised = false;
+
+    // ─── Auth State ─────────────────────────────────────────────────────────────
+    // FIX: auth state fires once on page load — we must always hide the loading
+    // screen after it resolves, regardless of whether a user is logged in.
+    auth.onAuthStateChanged(user => {
+      // Always hide loading screen first
+      document.getElementById('loading-screen').classList.add('hidden');
+
+      if (user) {
+        // User is signed in — show app
+        if (!appInitialised) {
+          appInitialised = true;
+          currentManagerUid = user.uid;
+          showApp(user);
+        }
+      } else {
+        // No user — show login. Also clean up if we were previously logged in.
+        if (appInitialised) {
+          appInitialised = false;
+          teardownListeners();
+          currentManagerUid = null;
+        }
+        showLogin();
+      }
+    });
+
+    function showLogin() {
+      document.getElementById('app-screen').classList.remove('show');
+      document.getElementById('app-screen').style.display = 'none';
+      document.getElementById('login-screen').classList.add('show');
+    }
+
+    function showApp(user) {
+      document.getElementById('login-screen').classList.remove('show');
+      document.getElementById('app-screen').style.display = 'block';
+      document.getElementById('mgr-nav-name').textContent = user.displayName || user.email.split('@')[0];
+      setupRealtimeListeners(currentManagerUid);
+    }
+
+    function teardownListeners() {
+      if (unsubTasks) { unsubTasks(); unsubTasks = null; }
+      if (unsubEmps) { unsubEmps(); unsubEmps = null; }
+      localTasks = [];
+      localEmps = [];
+    }
+
+    // ─── Audio ──────────────────────────────────────────────────────────────────
+    function initAC() { if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); }
+    function playNote(freq, type, dur, vol, delay) {
+      initAC();
+      const o = AC.createOscillator(), g = AC.createGain();
+      o.connect(g); g.connect(AC.destination);
+      o.type = type || 'sine'; o.frequency.value = freq;
+      g.gain.setValueAtTime(0, AC.currentTime + delay);
+      g.gain.linearRampToValueAtTime(vol, AC.currentTime + delay + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + delay + dur);
+      o.start(AC.currentTime + delay); o.stop(AC.currentTime + delay + dur + 0.05);
+    }
+    function soundNewTask() { playNote(523,'sine',.15,.22,0); playNote(659,'sine',.15,.22,.13); playNote(784,'sine',.28,.3,.26); }
+    function soundNewEmployee() { [523,659,784,1046].forEach((f,i) => playNote(f,'sine',i===3?.35:.15,.25,i*.11)); }
+    function soundTaskDone() { playNote(659,'sine',.12,.2,0); playNote(784,'sine',.12,.2,.1); playNote(1046,'sine',.35,.32,.22); }
+    function soundReview() { playNote(440,'triangle',.18,.3,0); playNote(440,'triangle',.18,.3,.28); }
+
+    // ─── Helpers ────────────────────────────────────────────────────────────────
+    function esc(s) { const d = document.createElement('div'); d.textContent = String(s||''); return d.innerHTML; }
+    function fmtDate(ts) {
+      if (!ts) return '';
+      const d = new Date(ts), now = new Date(), diff = Math.floor((now-d)/86400000);
+      const t = d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+      if (diff===0) return 'Today '+t; if (diff===1) return 'Yesterday'; if (diff<7) return diff+'d ago';
+      return d.toLocaleDateString([],{day:'numeric',month:'short',year:'numeric'});
+    }
+    // Sanitize employee id: replace @ with -, spaces with _, lowercase
+    function sanitizeId(id) { return id.replace(/@/g,'-').replace(/\s+/g,'_').toLowerCase(); }
+    // Build employee Firebase Auth email from their id + manager uid
+    function empEmail(empId, managerUid) { return `${sanitizeId(empId)}@${managerUid}.taskflow`; }
+    // Safe DOM id (strip chars that break querySelector/getElementById)
+    function domId(empId) { return empId.replace(/[^a-zA-Z0-9_-]/g,'_'); }
+
+    // ─── Get Employee Login Link ─────────────────────────────────────────────────
+    // FIX: Build the employee link robustly. We use the current page's origin +
+    // path-directory + "Employee.HTML" so it always points to the right file,
+    // regardless of how the manager page is named or where it lives.
+    function getLoginLink(empId) {
+      const origin = window.location.origin;
+      // Get directory of current page
+      const pathParts = window.location.pathname.split('/');
+      pathParts.pop(); // remove current filename
+      const dir = pathParts.join('/'); // e.g. "" or "/subfolder"
+      const empPath = dir ? dir + '/Employee.HTML' : '/Employee.HTML';
+      const params = new URLSearchParams({
+        emp: empId,
+        mgr: currentManagerUid
+      });
+      return `${origin}${empPath}?${params.toString()}`;
+    }
+
+    // ─── Auth UI ─────────────────────────────────────────────────────────────────
+    let isLoginMode = true;
+    function toggleAuthMode() {
+      isLoginMode = !isLoginMode;
+      document.getElementById('login-role-txt').textContent = isLoginMode ? 'Manager Portal' : 'Manager Registration';
+      document.getElementById('login-btn').textContent = isLoginMode ? 'Sign In as Manager' : 'Create Account';
+      document.getElementById('mode-toggle').textContent = isLoginMode ? 'No account? Create one' : 'Already have an account? Sign in';
+      document.getElementById('mgr-name-field').style.display = isLoginMode ? 'none' : 'block';
+      document.getElementById('login-err').textContent = '';
+    }
+
+    function mgrLogin() {
+      const em = document.getElementById('mgr-email').value.trim();
+      const pw = document.getElementById('mgr-pass').value;
+      const name = document.getElementById('mgr-name').value.trim();
+      if (!em || !pw) { document.getElementById('login-err').textContent = 'Fill email and password fields.'; return; }
+      if (!isLoginMode && !name) { document.getElementById('login-err').textContent = 'Please enter your name.'; return; }
+      const btn = document.getElementById('login-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>' + (isLoginMode ? 'Signing in…' : 'Creating Account…');
+      document.getElementById('login-err').textContent = '';
+      if (isLoginMode) {
+        auth.signInWithEmailAndPassword(em, pw)
+          .catch(e => {
+            document.getElementById('login-err').textContent = friendlyAuthError(e.code);
+            btn.disabled = false; btn.textContent = 'Sign In as Manager';
+          });
+      } else {
+        auth.createUserWithEmailAndPassword(em, pw)
+          .then(cred => cred.user.updateProfile({ displayName: name }).then(() => cred))
+          .catch(e => {
+            document.getElementById('login-err').textContent = friendlyAuthError(e.code);
+            btn.disabled = false; btn.textContent = 'Create Account';
+          });
+      }
+      // onAuthStateChanged handles the rest — no manual showApp() needed here
+    }
+
+    function friendlyAuthError(code) {
+      switch (code) {
+        case 'auth/user-not-found': return 'No account found with this email.';
+        case 'auth/wrong-password': return 'Incorrect password. Try again.';
+        case 'auth/invalid-email': return 'Please enter a valid email address.';
+        case 'auth/email-already-in-use': return 'This email is already registered. Sign in instead.';
+        case 'auth/weak-password': return 'Password must be at least 6 characters.';
+        case 'auth/too-many-requests': return 'Too many attempts. Please try again later.';
+        case 'auth/invalid-credential': return 'Incorrect email or password.';
+        default: return 'Login failed. Check your credentials and try again.';
+      }
+    }
+
+    function setupRealtimeListeners(uid) {
+      teardownListeners(); // always clean up first
+
+      unsubEmps = db.collection('employees').where('managerId','==',uid).onSnapshot(snap => {
+        localEmps = snap.docs.map(d => d.data());
+        renderEmps();
+        renderEmpSelect();
+      }, err => console.error('Employees listener error:', err));
+
+      unsubTasks = db.collection('tasks').where('managerId','==',uid).onSnapshot(snap => {
+        localTasks = snap.docs.map(d => d.data());
+        checkNotifications();
+        renderTasks();
+        renderByEmp();
+      }, err => console.error('Tasks listener error:', err));
+    }
+
+    function logout() {
+      const btn = document.querySelector('.nav-btn');
+      if (btn) { btn.disabled = true; btn.textContent = 'Logging out…'; }
+      auth.signOut().then(() => {
+        // onAuthStateChanged fires and calls showLogin() — nothing else needed
+        document.getElementById('mgr-pass').value = '';
+        const loginBtn = document.getElementById('login-btn');
+        loginBtn.disabled = false;
+        loginBtn.textContent = isLoginMode ? 'Sign In as Manager' : 'Create Account';
+        document.getElementById('login-err').textContent = '';
+      }).catch(e => console.error('Logout error:', e));
+    }
+
+    // ─── UI Helpers ──────────────────────────────────────────────────────────────
+    function switchTab(t) {
+      ['tasks','byemp','employees'].forEach(p => {
+        document.getElementById('pane-'+p).style.display = p===t ? 'block' : 'none';
+        document.getElementById('tab-'+p).className = 'tab'+(p===t?' active':'');
+      });
+      if (t==='byemp') renderByEmp();
+    }
+    function toggleImp() {
+      isImportant = !isImportant;
+      document.getElementById('imp-check').className = 'imp-check'+(isImportant?' on':'');
+      document.getElementById('imp-row').className = 'imp-row'+(isImportant?' on':'');
+    }
+    function setFilter(f) {
+      currentFilter = f;
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      const map = {all:'f-all',pending:'f-pending',finished:'f-finished',urgent:'f-urgent2',review:'f-review',output:'f-output'};
+      if (map[f]) { const el = document.getElementById(map[f]); if (el) el.classList.add('active'); }
+      renderTasks();
+    }
+
+    // ─── Tasks ───────────────────────────────────────────────────────────────────
+    function addTask() {
+      const empUid = document.getElementById('f-emp').value;
+      if (!empUid) { alert('Please select an employee.'); return; }
+      const emp = localEmps.find(e => e.uid === empUid);
+      if (!emp) { alert('Employee not found. Please refresh and try again.'); return; }
+      const name = document.getElementById('f-task').value.trim();
+      if (!name) { alert('Please enter a task name.'); return; }
+      const desc = document.getElementById('f-desc').value.trim();
+      const linksRaw = document.getElementById('f-links').value;
+      const links = linksRaw.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      const taskId = Date.now();
+      const newTask = {
+        id: taskId, managerId: currentManagerUid,
+        empUid: emp.uid, empId: emp.id, empName: emp.name, empRole: emp.role || 'general',
+        name, desc, links, urgent: isImportant,
+        status: 'pending', kanbanCol: 'tasks', createdAt: taskId,
+        comments: [], outputLinks: [], corrections: [],
+        correctionsDone: [], correctionsApproved: [], linkComments: {}
+      };
+      const btn = document.getElementById('add-task-btn');
+      btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Assigning…';
+      db.collection('tasks').doc(String(taskId)).set(newTask)
+        .then(() => {
+          document.getElementById('f-task').value = '';
+          document.getElementById('f-desc').value = '';
+          document.getElementById('f-links').value = '';
+          if (isImportant) toggleImp();
+          soundNewTask();
+        })
+        .catch(e => alert('Error creating task: ' + e.message))
+        .finally(() => { btn.disabled = false; btn.textContent = 'Assign Task →'; });
+    }
+
+    // ─── Employees ───────────────────────────────────────────────────────────────
+    async function createEmployee() {
+      const name = document.getElementById('e-name').value.trim();
+      const rawId = document.getElementById('e-id').value.trim();
+      const id = sanitizeId(rawId);
+      const pass = document.getElementById('e-pass').value.trim();
+      const parts = id.split('-');
+      const role = parts.length > 1 ? parts[parts.length - 1] : 'general';
+      const errEl = document.getElementById('emp-err');
+      const sucEl = document.getElementById('emp-suc');
+      const btn = document.getElementById('emp-create-btn');
+      errEl.textContent = ''; sucEl.textContent = '';
+      if (!name || !id || !pass) { errEl.textContent = 'All fields required.'; return; }
+      if (pass.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; return; }
+      if (localEmps.find(e => e.id === id)) { errEl.textContent = 'Employee ID already exists.'; return; }
+      btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Creating…';
+      try {
+        const email = empEmail(id, currentManagerUid);
+        // FIX: Use secondaryAuth to create employee account so manager stays logged in.
+        // secondaryAuth is a separate Firebase app instance — it won't affect manager's session.
+        const cred = await secondaryAuth.createUserWithEmailAndPassword(email, pass);
+        const empUid = cred.user.uid;
+        // Sign out of secondary app immediately after getting the UID
+        await secondaryAuth.signOut();
+        const empDoc = {
+          id, name, role, managerId: currentManagerUid,
+          uid: empUid, createdAt: Date.now()
+        };
+        // FIX: Write to Firestore and wait for confirmation before showing success.
+        // onSnapshot will update localEmps and re-render automatically.
+        await db.collection('employees').doc(empUid).set(empDoc);
+        document.getElementById('e-name').value = '';
+        document.getElementById('e-id').value = '';
+        document.getElementById('e-pass').value = '';
+        sucEl.textContent = `✓ Account created for ${name}`;
+        setTimeout(() => { sucEl.textContent = ''; }, 4000);
+        soundNewEmployee();
+      } catch (e) {
+        if (e.code === 'auth/email-already-in-use') {
+          errEl.textContent = 'That Employee ID is already taken. Choose a different one.';
+        } else {
+          errEl.textContent = e.message;
+        }
+      } finally {
+        btn.disabled = false; btn.textContent = 'Create Account →';
+      }
+    }
+
+    // ─── Edit Employee Modal ──────────────────────────────────────────────────────
+    let editingEmpUid = null;
+    function openEditModal(empUid) {
+      const emp = localEmps.find(e => e.uid === empUid);
+      if (!emp) return;
+      editingEmpUid = empUid;
+      document.getElementById('edit-emp-name').value = emp.name || '';
+      document.getElementById('edit-emp-role').value = emp.role || 'general';
+      document.getElementById('edit-emp-pass').value = '';
+      document.getElementById('edit-emp-err').textContent = '';
+      document.getElementById('edit-emp-suc').textContent = '';
+      document.getElementById('edit-save-btn').disabled = false;
+      document.getElementById('edit-save-btn').textContent = 'Save Changes';
+      document.getElementById('edit-del-btn').disabled = false;
+      document.getElementById('edit-del-btn').innerHTML = '🗑 Delete';
+      document.getElementById('edit-emp-modal').classList.add('open');
+    }
+    function closeEditModal() {
+      document.getElementById('edit-emp-modal').classList.remove('open');
+      editingEmpUid = null;
+    }
+    async function saveEmployeeEdit() {
+      const uid = editingEmpUid;
+      if (!uid) return;
+      const newName = document.getElementById('edit-emp-name').value.trim();
+      const newRole = document.getElementById('edit-emp-role').value.trim() || 'general';
+      const newPass = document.getElementById('edit-emp-pass').value.trim();
+      const errEl = document.getElementById('edit-emp-err');
+      const sucEl = document.getElementById('edit-emp-suc');
+      const btn = document.getElementById('edit-save-btn');
+      errEl.textContent = ''; sucEl.textContent = '';
+      if (!newName) { errEl.textContent = 'Name cannot be empty.'; return; }
+      if (newPass && newPass.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; return; }
+      btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving…';
+      try {
+        const updates = { name: newName, role: newRole };
+        // Store pending password in Firestore — employee app reads and applies on next login
+        if (newPass) updates._pendingPass = newPass;
+        await db.collection('employees').doc(uid).update(updates);
+        // Also update empName in all tasks belonging to this employee
+        const empTasks = localTasks.filter(t => t.empUid === uid);
+        const batch = db.batch();
+        empTasks.forEach(t => {
+          batch.update(db.collection('tasks').doc(String(t.id)), { empName: newName, empRole: newRole });
+        });
+        if (empTasks.length) await batch.commit();
+        sucEl.textContent = newPass
+          ? '✓ Saved. Employee will use new password on next login.'
+          : '✓ Profile updated.';
+        setTimeout(() => {
+          if (document.getElementById('edit-emp-modal').classList.contains('open')) closeEditModal();
+        }, 2000);
+      } catch (e) {
+        errEl.textContent = e.message;
+      } finally {
+        btn.disabled = false; btn.textContent = 'Save Changes';
+      }
+    }
+    async function confirmDeleteEmployee() {
+      const uid = editingEmpUid;
+      const emp = localEmps.find(e => e.uid === uid);
+      if (!emp) return;
+      if (!confirm(`Delete employee "${emp.name}"?\n\nThis removes their account. Their tasks will remain.`)) return;
+      const btn = document.getElementById('edit-del-btn');
+      btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Deleting…';
+      try {
+        await db.collection('employees').doc(uid).delete();
+        closeEditModal();
+      } catch (e) {
+        document.getElementById('edit-emp-err').textContent = e.message;
+        btn.disabled = false; btn.innerHTML = '🗑 Delete';
+      }
+    }
+
+    function copyLink(empId) {
+      const link = getLoginLink(empId);
+      navigator.clipboard.writeText(link).catch(() => {
+        // Fallback for non-secure contexts
+        const ta = document.createElement('textarea');
+        ta.value = link; document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); document.body.removeChild(ta);
+      });
+      const btn = document.getElementById('copy-' + domId(empId));
+      if (btn) {
+        btn.textContent = '✓ Copied!'; btn.className = 'copy-btn copied';
+        setTimeout(() => { btn.textContent = 'Copy Link'; btn.className = 'copy-btn'; }, 2500);
+      }
+    }
+
+    function roleTag(role) {
+      const r = (role || '').toLowerCase();
+      if (r==='poster'||r==='designer') return `<span class="role-tag role-poster">🎨 ${esc(role)}</span>`;
+      if (r==='dev'||r==='developer') return `<span class="role-tag role-dev">💻 ${esc(role)}</span>`;
+      return `<span class="role-tag role-general">${esc(role||'general')}</span>`;
+    }
+
+    function renderEmps() {
+      const el = document.getElementById('emp-list');
+      if (!localEmps.length) { el.innerHTML = '<div class="empty-state">No employees yet</div>'; return; }
+      el.innerHTML = '<div class="emp-grid">' + localEmps.map(e => {
+        const link = getLoginLink(e.id);
+        const safeId = domId(e.id);
+        const shortLink = link.length > 34 ? link.substring(0, 34) + '…' : link;
+        return `<div class="emp-card">
+          <div class="emp-avatar">${esc((e.name||'?').charAt(0).toUpperCase())}</div>
+          <div class="emp-info">
+            <div class="emp-name">${esc(e.name)}</div>
+            <div class="emp-id">ID: ${esc(e.id)}</div>
+            ${roleTag(e.role || 'general')}
+            <div class="link-copy-row">
+              <div class="link-display" title="${esc(link)}">${esc(shortLink)}</div>
+              <button class="copy-btn" id="copy-${safeId}" onclick="copyLink('${esc(e.id)}')">Copy Link</button>
+            </div>
+            <div class="emp-actions">
+              <button class="emp-action-btn" onclick="openEditModal('${esc(e.uid)}')">✏️ Edit / Password</button>
+              <button class="emp-action-btn danger" onclick="quickDelete('${esc(e.uid)}','${esc(e.name)}')">🗑 Delete</button>
+            </div>
+          </div>
+        </div>`;
+      }).join('') + '</div>';
+    }
+
+    async function quickDelete(uid, name) {
+      if (!confirm(`Delete employee "${name}"?\nThis removes their account. Their tasks will remain.`)) return;
+      try { await db.collection('employees').doc(uid).delete(); }
+      catch (e) { alert(e.message); }
+    }
+
+    function renderEmpSelect() {
+      const sel = document.getElementById('f-emp');
+      const cur = sel.value;
+      sel.innerHTML = '<option value="">— select employee —</option>' +
+        localEmps.map(e => `<option value="${esc(e.uid)}">${esc(e.name)} · ${esc(e.role || 'general')}</option>`).join('');
+      if (cur) sel.value = cur;
+    }
+
+    // ─── Task Card HTML ───────────────────────────────────────────────────────────
+    function taskCardHTML(t) {
+      const hasRev = t.corrections && t.corrections.some((_,i) => t.correctionsDone[i] && !t.correctionsApproved[i]);
+      const hasOut = t.outputLinks && t.outputLinks.length > 0;
+      let cls = 'task-card';
+      if (t.urgent && t.status !== 'finished') cls += ' t-urgent';
+      else if (hasRev) cls += ' t-review';
+      else if (t.status === 'finished') cls += ' t-done';
+      const bStatus = t.status==='finished' ? '<span class="badge b-done">✅ Done</span>' : '<span class="badge b-pend">Pending</span>';
+      const bUrg = t.urgent && t.status!=='finished' ? '<span class="badge b-urg">🔥 Urgent</span>' : '';
+      const bRev = hasRev ? '<span class="badge b-rev">⚡ Review</span>' : '';
+      const bOut = hasOut ? '<span class="badge b-out">📤 Output</span>' : '';
+      const note = hasRev ? '<div class="task-note">⚡ Click to review employee fix</div>' : '';
+      return `<div class="${cls}" onclick="openOverlay(${t.id})">
+        <div class="task-header"><div class="task-name">${esc(t.name)}</div><div class="badges">${bUrg}${bRev}${bOut}${bStatus}</div></div>
+        <div class="task-meta"><span>${esc(t.empName)}</span><span class="task-date">📅 ${fmtDate(t.createdAt)}</span></div>${note}
+      </div>`;
+    }
+
+    function renderTasks() {
+      let tasks = localTasks;
+      const rev = tasks.filter(t => t.corrections && t.corrections.some((_,i) => t.correctionsDone[i] && !t.correctionsApproved[i])).length;
+      const urg = tasks.filter(t => t.urgent && t.status!=='finished').length;
+      const out = tasks.filter(t => t.outputLinks && t.outputLinks.length > 0).length;
+      document.getElementById('s-total').textContent = tasks.length;
+      document.getElementById('s-pending').textContent = tasks.filter(t => t.status==='pending').length;
+      document.getElementById('s-done').textContent = tasks.filter(t => t.status==='finished').length;
+      document.getElementById('s-review').textContent = rev;
+      document.getElementById('s-urgent').textContent = urg;
+      document.getElementById('s-output').textContent = out;
+      document.getElementById('notif-dot').style.display = rev > 0 ? 'inline-block' : 'none';
+      if (currentFilter==='pending') tasks = tasks.filter(t => t.status==='pending');
+      else if (currentFilter==='finished') tasks = tasks.filter(t => t.status==='finished');
+      else if (currentFilter==='urgent') tasks = tasks.filter(t => t.urgent && t.status!=='finished');
+      else if (currentFilter==='review') tasks = tasks.filter(t => t.corrections && t.corrections.some((_,i) => t.correctionsDone[i] && !t.correctionsApproved[i]));
+      else if (currentFilter==='output') tasks = tasks.filter(t => t.outputLinks && t.outputLinks.length > 0);
+      const feed = document.getElementById('task-feed');
+      if (!tasks.length) { feed.innerHTML = '<div class="empty-state">No tasks here</div>'; return; }
+      feed.innerHTML = tasks.slice().reverse().map(t => taskCardHTML(t)).join('');
+    }
+
+    function renderByEmp() {
+      const el = document.getElementById('byemp-list');
+      if (!localTasks.length) { el.innerHTML = '<div class="empty-state">No tasks yet</div>'; return; }
+      const groups = {};
+      localTasks.forEach(t => {
+        if (!groups[t.empId]) groups[t.empId] = { name: t.empName, role: t.empRole||'general', tasks: [] };
+        groups[t.empId].tasks.push(t);
+      });
+      el.innerHTML = Object.entries(groups).map(([empId, g]) => {
+        const done = g.tasks.filter(t => t.status==='finished').length;
+        const pend = g.tasks.filter(t => t.status==='pending').length;
+        const urg = g.tasks.filter(t => t.urgent && t.status!=='finished').length;
+        const collapsed = collapsedEmps[empId];
+        const safeEmpId = domId(empId);
+        return `<div class="emp-section">
+          <div class="emp-section-head" onclick="toggleEmpSec('${esc(empId)}')">
+            <div class="esh-avatar">${esc((g.name||'?').charAt(0).toUpperCase())}</div>
+            <div style="flex:1">
+              <div class="esh-name">${esc(g.name)} ${roleTag(g.role)}</div>
+              <div class="esh-stats">${g.tasks.length} tasks · ${done} done · ${pend} pending${urg?' · 🔥 '+urg+' urgent':''}</div>
+            </div>
+            <div class="esh-tog" id="etog-${safeEmpId}">${collapsed?'▶':'▼'}</div>
+          </div>
+          <div class="emp-section-body${collapsed?' collapsed':''}" id="esec-${safeEmpId}">
+            ${g.tasks.slice().reverse().map(t => taskCardHTML(t)).join('')}
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    function toggleEmpSec(rawId) {
+      collapsedEmps[rawId] = !collapsedEmps[rawId];
+      const safeId = domId(rawId);
+      const b = document.getElementById('esec-'+safeId);
+      const tog = document.getElementById('etog-'+safeId);
+      if (b) b.className = 'emp-section-body'+(collapsedEmps[rawId]?' collapsed':'');
+      if (tog) tog.textContent = collapsedEmps[rawId] ? '▶' : '▼';
+    }
+
+    // ─── Task Overlay ─────────────────────────────────────────────────────────────
+    function openOverlay(id) {
+      const t = localTasks.find(x => x.id === id);
+      if (!t) return;
+      const urgBanner = t.urgent && t.status!=='finished'
+        ? `<div class="ov-urgent-banner">🔥 URGENT — Employee was alerted to do this immediately</div>` : '';
+      const descH = t.desc
+        ? `<div class="ov-sec"><div class="ov-sec-label">Description</div><div class="ov-desc">${esc(t.desc)}</div></div>` : '';
+      let linksH = '';
+      if (t.links && t.links.length) {
+        const lcs = t.linkComments || {};
+        const cards = t.links.map((l, li) => {
+          const lkey = 'l'+li;
+          const prevComments = (lcs[lkey]||[]).map(c =>
+            `<div style="font-size:12px;padding:5px 0;border-bottom:1px solid var(--brd);color:var(--txt)"><strong style="color:var(--navy)">Mgr:</strong> ${esc(c)}</div>`
+          ).join('');
+          const isMedia = l.match(/\.(jpg|jpeg|png|gif|webp|svg|mp4|webm|pdf)(\?|$)/i) || l.includes('drive.google') || l.includes('figma');
+          const commentCount = (lcs[lkey]||[]).length;
+          return `<div class="link-inspect-card">
+            <div class="link-inspect-head" onclick="toggleLP(${id},${li})">
+              <span>🔗</span>
+              <span class="link-inspect-url">${esc(l.length>56?l.slice(0,56)+'…':l)}</span>
+              <div class="link-inspect-actions">
+                <button class="li-btn open" onclick="event.stopPropagation();window.open('${esc(l)}','_blank')">Open ↗</button>
+                ${commentCount?`<span style="font-size:12px;color:var(--sub)">💬${commentCount}</span>`:''}
+              </div>
+            </div>
+            <div class="li-preview" id="lp-${id}-${li}">
+              ${isMedia?`<iframe src="${esc(l)}" sandbox="allow-same-origin allow-scripts" loading="lazy"></iframe><div class="li-note">Use Open ↗ if preview doesn't load</div>`:`<div class="li-note" style="padding-top:10px">Click Open ↗ to view this link.</div>`}
+              ${prevComments?`<div style="margin:10px 0 6px;background:var(--wh);border-radius:8px;padding:8px 10px">${prevComments}</div>`:''}
+              <div class="li-comment-row">
+                <input class="li-comment-inp" id="lci-${id}-${li}" placeholder="Comment on this link…" onkeydown="if(event.key==='Enter')addLC(${id},${li})">
+                <button class="li-comment-send" onclick="addLC(${id},${li})">Comment</button>
+              </div>
+            </div>
+          </div>`;
+        }).join('');
+        linksH = `<div class="ov-sec"><div class="ov-sec-label">Reference Links — Click to Expand & Comment</div>${cards}</div>`;
+      }
+      const outs = t.outputLinks || [];
+      let outputH = '';
+      if (t.status==='finished' || outs.length) {
+        const outList = outs.length
+          ? outs.map(o => `<a class="output-link-display" href="${esc(o)}" target="_blank" rel="noopener">📤 ${esc(o.length>56?o.slice(0,56)+'…':o)}</a>`).join('')
+          : '<div style="font-size:12px;color:var(--sub);margin-bottom:8px">No output submitted yet.</div>';
+        outputH = `<div class="ov-sec"><div class="ov-sec-label">📤 Employee Output / Deliverable</div><div class="output-section">${outList}<div style="font-size:12px;color:var(--gnd);margin-top:6px">Submitted by employee as their final work</div></div></div>`;
+      }
+      let corrH = '';
+      if (t.corrections && t.corrections.length) {
+        corrH = `<div class="ov-sec"><div class="ov-sec-label">Corrections</div>${t.corrections.map((c,i) => {
+          const done = !!t.correctionsDone[i], appr = !!t.correctionsApproved[i];
+          const tcls = done ? 'corr-text struck' : 'corr-text';
+          let action = done && !appr
+            ? `<button class="approve-btn" onclick="approveCorr(${id},${i})">Approve ✓</button>`
+            : appr ? `<button class="approve-btn done" disabled>Approved ✓</button>`
+              : `<span class="await-lbl">Awaiting fix…</span>`;
+          return `<div class="corr-row"><div class="${tcls}">${esc(c)}</div>${action}</div>`;
+        }).join('')}</div>`;
+      }
+      const allComm = t.comments || [];
+      let commH = '';
+      if (allComm.length) {
+        commH = `<div class="ov-sec"><div class="ov-sec-label">Comments</div>${allComm.map(c =>
+          `<div class="comment-item ${c.isC?'c-mgr':c.isLink?'c-link':''}"><div class="comment-from">${esc(c.from)}</div><div class="comment-txt">${esc(c.text)}</div></div>`
+        ).join('')}</div>`;
+      }
+      let addCorrH = '';
+      if (t.status==='finished') {
+        addCorrH = `<div class="ov-sec"><div class="ov-sec-label">Request Correction</div><div class="corr-input-row"><input class="corr-input" id="ci-${id}" placeholder="Describe what needs fixing…" onkeydown="if(event.key==='Enter')addCorr(${id})"><button class="corr-send" onclick="addCorr(${id})">Send</button></div></div>`;
+      }
+      const badge = t.status==='finished'
+        ? '<span class="ov-badge ob-done">✅ Finished</span>'
+        : '<span class="ov-badge ob-pend">Pending</span>';
+      document.getElementById('ov-box').innerHTML = `
+        <button class="ov-close" onclick="closeOv()">✕</button>
+        <div class="ov-title">${esc(t.name)}</div>
+        <div class="ov-meta">${esc(t.empName)} · ${esc(t.empRole||'general')} · ${badge}<span class="ov-date">📅 ${fmtDate(t.createdAt)}</span></div>
+        ${urgBanner}${descH}${linksH}${outputH}${corrH}${commH}${addCorrH}`;
+      document.getElementById('overlay').classList.add('open');
+    }
+
+    function toggleLP(id, li) {
+      const el = document.getElementById(`lp-${id}-${li}`);
+      if (el) el.style.display = el.style.display==='block' ? 'none' : 'block';
+    }
+    function addLC(id, li) {
+      const inp = document.getElementById(`lci-${id}-${li}`);
+      if (!inp || !inp.value.trim()) return;
+      const t = localTasks.find(x => x.id===id); if (!t) return;
+      if (!t.linkComments) t.linkComments = {};
+      const key = 'l'+li;
+      if (!t.linkComments[key]) t.linkComments[key] = [];
+      t.linkComments[key].push(inp.value.trim());
+      t.comments.push({ from:'Manager (link)', text: inp.value.trim(), isLink: true });
+      db.collection('tasks').doc(String(t.id)).set(t).catch(e => console.error(e));
+      openOverlay(id);
+    }
+    function closeOv() { document.getElementById('overlay').classList.remove('open'); }
+    document.getElementById('overlay').addEventListener('click', function(e) { if (e.target===this) closeOv(); });
+    document.getElementById('edit-emp-modal').addEventListener('click', function(e) { if (e.target===this) closeEditModal(); });
+
+    function addCorr(id) {
+      const inp = document.getElementById('ci-'+id);
+      if (!inp || !inp.value.trim()) return;
+      const t = localTasks.find(x => x.id===id); if (!t) return;
+      t.corrections.push(inp.value.trim());
+      t.correctionsDone.push(false); t.correctionsApproved.push(false);
+      t.status = 'pending'; // reopen task
+      t.comments.push({ from:'Manager', text:'Correction: '+inp.value.trim(), isC: true });
+      db.collection('tasks').doc(String(t.id)).set(t).catch(e => console.error(e));
+      openOverlay(id);
+    }
+    function approveCorr(id, i) {
+      const t = localTasks.find(x => x.id===id); if (!t) return;
+      t.correctionsApproved[i] = true;
+      const allApproved = t.corrections.every((_,idx) => t.correctionsApproved[idx]);
+      if (allApproved) t.status = 'finished';
+      db.collection('tasks').doc(String(t.id)).set(t).catch(e => console.error(e));
+      openOverlay(id);
+    }
+
+    // ─── Notifications ────────────────────────────────────────────────────────────
+    function loadSeen() { try { return JSON.parse(localStorage.getItem(SEEN_KEY))||{}; } catch(e) { return {}; } }
+    function saveSeen(s) { localStorage.setItem(SEEN_KEY, JSON.stringify(s)); }
+    function checkNotifications() {
+      if (document.getElementById('app-screen').style.display !== 'block') return;
+      const seen = loadSeen(); let changed = false;
+      localTasks.forEach(t => {
+        if (t.status==='finished' && !seen['done_'+t.id]) { seen['done_'+t.id]=true; soundTaskDone(); changed=true; }
+        const hasRev = t.corrections && t.corrections.some((_,i) => t.correctionsDone[i] && !t.correctionsApproved[i]);
+        if (hasRev && !seen['rev_'+t.id]) { seen['rev_'+t.id]=true; soundReview(); changed=true; }
+      });
+      if (changed) saveSeen(seen);
+    }
+  </script>
+</body>
+</html>
