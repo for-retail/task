@@ -342,9 +342,12 @@
     function esc(s) { const d = document.createElement('div'); d.textContent = String(s||''); return d.innerHTML; }
     function fmtDate(ts) {
       if (!ts) return '';
-      const d = new Date(ts), now = new Date(), diff = Math.floor((now-d)/86400000);
-      const t = d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-      if (diff===0) return 'Today '+t; if (diff===1) return 'Yesterday'; if (diff<7) return diff+'d ago';
+  const d = new Date(ts);
+  const time = d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  const dMid = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const nowMid = new Date(); nowMid.setHours(0,0,0,0);
+  const diff = Math.round((nowMid - dMid) / 86400000);
+  if (diff===0) return 'Today '+time; if (diff===1) return 'Yesterday'; if (diff<7) return diff+'d ago';
       return d.toLocaleDateString([],{day:'numeric',month:'short'});
     }
     // Sanitize employee id for use in Firebase Auth email
